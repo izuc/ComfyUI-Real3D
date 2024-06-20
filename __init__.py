@@ -51,6 +51,14 @@ class Timer:
 
 timer = Timer()
 
+def load_custom_checkpoint(checkpoint_path):
+    checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    if 'state_dict' in checkpoint:
+        state_dict = checkpoint['state_dict']
+    else:
+        state_dict = checkpoint
+    return state_dict
+
 class TripoSRModelLoader:
     def __init__(self):
         self.initialized_model = None
@@ -76,17 +84,18 @@ class TripoSRModelLoader:
 
         if not self.initialized_model:
             print("Loading TripoSR model")
+            state_dict = load_custom_checkpoint(get_full_path("checkpoints", model))
             self.initialized_model = TSR.from_pretrained_custom(
-                weight_path=get_full_path("checkpoints", model),
+                weight_path=state_dict,
                 config_path=path.join(path.dirname(__file__), "config.yaml")
             )
+            self.initialized_model.load_state_dict(state_dict, strict=False)  # Use strict=False to handle missing/unexpected keys
             self.initialized_model.renderer.set_chunk_size(chunk_size)
             self.initialized_model.to(device)
 
         return (self.initialized_model,)
 
 class TripoSRSampler:
-
     def __init__(self):
         self.initialized_model = None
 
