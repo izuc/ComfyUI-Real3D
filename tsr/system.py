@@ -46,8 +46,15 @@ class MarchingCubeHelper(torch.nn.Module):
         self.grid_vertices = self.create_grid_vertices()
 
     def forward(self, volume):
-        volume = volume.reshape(-1)  # Flatten the volume tensor
-        volume = volume[:self.resolution**3]  # Take the first resolution^3 elements
+        volume_size = volume.numel()
+        expected_size = self.resolution ** 3
+    
+        if volume_size > expected_size:
+            volume = volume[:expected_size]  # Take the first expected_size elements
+        elif volume_size < expected_size:
+            padding_size = expected_size - volume_size
+            volume = torch.cat([volume, torch.zeros(padding_size, dtype=volume.dtype, device=volume.device)])  # Pad with zeros
+    
         volume = volume.reshape(self.resolution, self.resolution, self.resolution).detach().cpu().numpy()
         verts, faces, _, _ = measure.marching_cubes(volume, level=0, spacing=(1.0, 1.0, 1.0))
         verts = torch.from_numpy(verts).float()
