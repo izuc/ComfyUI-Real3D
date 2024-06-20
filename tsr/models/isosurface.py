@@ -23,7 +23,7 @@ class MarchingCubeHelper(IsosurfaceHelper):
 
     @property
     def grid_vertices(self) -> torch.FloatTensor:
-        if self._grid_vertices is None:
+        if self._grid_vertices is None or self._grid_vertices.shape[0] != self.resolution:
             # keep the vertices on CPU so that we can support very large resolution
             x, y, z = (
                 torch.linspace(*self.points_range, self.resolution),
