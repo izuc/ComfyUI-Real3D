@@ -141,9 +141,24 @@ class TripoSRSampler:
             scene_codes = model.get_latent_from_img([image], device=device)
         timer.end("Running model")
 
-        timer.start("Exporting mesh")
+        timer.start("Extracting mesh")
         meshes = model.extract_mesh(scene_codes, resolution=geometry_resolution, threshold=threshold)
-        meshes[0].export(os.path.join(get_output_directory(), f"mesh_{time.time()}.{model_save_format}"))
+
+        # Logging for debugging
+        if meshes:
+            mesh = meshes[0]
+            logging.info(f"Mesh vertices shape: {mesh.vertices.shape}")
+            logging.info(f"Mesh faces shape: {mesh.faces.shape}")
+            logging.info(f"Mesh vertices: {mesh.vertices}")
+            logging.info(f"Mesh faces: {mesh.faces}")
+
+        # Ensure mesh is valid before exporting
+        if meshes and len(meshes[0].vertices) > 0 and len(meshes[0].faces) > 0:
+            meshes[0].export(os.path.join(get_output_directory(), f"mesh_{time.time()}.{model_save_format}"))
+            logging.info("Mesh exported successfully.")
+        else:
+            logging.error("No valid mesh extracted.")
+
         timer.end("Exporting mesh")
 
         return ([meshes[0]],)
