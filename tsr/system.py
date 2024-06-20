@@ -58,7 +58,6 @@ class TSR(BaseModule):
         if os.path.isdir(pretrained_model_name_or_path):
             config_path = os.path.join(pretrained_model_name_or_path, config_name)
             weight_path = os.path.join(pretrained_model_name_or_path, weight_name)
-            use_saved_ckpt = True
         else:
             config_path = hf_hub_download(
                 repo_id=pretrained_model_name_or_path, filename=config_name
@@ -66,17 +65,19 @@ class TSR(BaseModule):
             weight_path = hf_hub_download(
                 repo_id=pretrained_model_name_or_path, filename=weight_name
             )
-            use_saved_ckpt = False
 
         cfg = OmegaConf.load(config_path)
         OmegaConf.resolve(cfg)
         model = cls(cfg)
         ckpt = torch.load(weight_path, map_location="cpu")
-        if use_saved_ckpt:
-            if "module" in list(ckpt["state_dict"].keys())[0]:
-                ckpt = {key.replace('module.',''): item for key, item in ckpt["state_dict"].items()}
-            else:
-                ckpt = ckpt["state_dict"]
+        
+        # Handle different checkpoint formats
+        if "state_dict" in ckpt:
+            ckpt = ckpt["state_dict"]
+        
+        if any(key.startswith("module.") for key in ckpt.keys()):
+            ckpt = {key.replace("module.", ""): item for key, item in ckpt.items()}
+        
         model.load_state_dict(ckpt)
         return model
 
@@ -93,7 +94,6 @@ class TSR(BaseModule):
         self.renderer = find_class(self.cfg.renderer_cls)(self.cfg.renderer)
         self.image_processor = ImagePreprocessor()
         self.isosurface_helper = None
-
 
     def forward(self, 
                 inputs: torch.FloatTensor, 
