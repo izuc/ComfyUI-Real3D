@@ -19,6 +19,7 @@ def fill_background(image):
     return image
 
 def get_rays(image, n_views=1):
+    # Placeholder implementation
     height, width = image.size[1], image.size[0]
     rays_o = torch.zeros((n_views, height, width, 3), dtype=torch.float32)
     rays_d = torch.zeros((n_views, height, width, 3), dtype=torch.float32)
@@ -130,19 +131,36 @@ class TripoSRSampler:
             scene_codes = model.get_latent_from_img([image], device=device)
         timer.end("Running model")
 
-        timer.start("Exporting mesh")
+        timer.start("Extracting mesh")
         meshes = model.extract_mesh(scene_codes, resolution=geometry_resolution, threshold=threshold)
+        if not meshes or len(meshes[0].vertices) == 0 or len(meshes[0].faces) == 0:
+            logging.error("No valid mesh extracted.")
+            return [],
+
+        # Log the number of vertices and faces
+        logging.info(f"Extracted mesh with {len(meshes[0].vertices)} vertices and {len(meshes[0].faces)} faces.")
         
+        timer.end("Extracting mesh")
+
+        timer.start("Exporting OBJ mesh")
         output_filename = path.join(get_output_directory(), f"mesh_{time.time()}.obj")
-        meshes[0].export(output_filename)
-        logging.info(f"Mesh exported successfully to {output_filename}")
-        
+        try:
+            meshes[0].export(output_filename)
+            logging.info(f"Mesh exported successfully to {output_filename}")
+        except Exception as e:
+            logging.error(f"Error exporting OBJ mesh: {e}")
+        timer.end("Exporting OBJ mesh")
+
         if model_save_format == "glb":
-            output_glb_filename = path.join(get_output_directory(), f"mesh_{time.time()}.glb")
-            meshes[0].export(output_glb_filename, file_type='glb')
-            logging.info(f"Mesh exported successfully to {output_glb_filename}")
-        
-        timer.end("Exporting mesh")
+            timer.start("Converting OBJ to GLB")
+            try:
+                scene = trimesh.load(output_filename)
+                output_glb_filename = path.join(get_output_directory(), f"mesh_{time.time()}.glb")
+                scene.export(output_glb_filename)
+                logging.info(f"Mesh converted and exported successfully to {output_glb_filename}")
+            except Exception as e:
+                logging.error(f"Error converting OBJ to GLB: {e}")
+            timer.end("Converting OBJ to GLB")
 
         return ([meshes[0]],)
 
