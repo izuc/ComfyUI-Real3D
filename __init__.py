@@ -1,16 +1,19 @@
 import sys
 from os import path
+import logging
+import numpy as np
+from PIL import Image
+import torch
+import time
+import rembg
+import trimesh
 
-sys.path.insert(0, path.dirname(__file__))
 from folder_paths import get_filename_list, get_full_path, get_save_image_path, get_output_directory
 from comfy.model_management import get_torch_device
 from tsr.system import TSR
-from PIL import Image
-import numpy as np
-import torch
-import logging
-import time
-import rembg
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def fill_background(image):
     image = np.array(image).astype(np.float32) / 255.0
@@ -19,7 +22,6 @@ def fill_background(image):
     return image
 
 def get_rays(image, n_views=1):
-    # Placeholder implementation
     height, width = image.size[1], image.size[0]
     rays_o = torch.zeros((n_views, height, width, 3), dtype=torch.float32)
     rays_d = torch.zeros((n_views, height, width, 3), dtype=torch.float32)
