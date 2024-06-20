@@ -151,7 +151,7 @@ class TripoSRSampler:
         timer.end("Extracting mesh")
 
         timer.start("Exporting OBJ mesh")
-        output_filename = path.join(get_output_directory(), f"mesh_{time.time()}.obj")
+        output_filename = os.path.join(get_output_directory(), f"mesh_{time.time()}.obj")
         try:
             meshes[0].export(output_filename)
             logging.info(f"Mesh exported successfully to {output_filename}")
@@ -163,7 +163,7 @@ class TripoSRSampler:
             timer.start("Converting OBJ to GLB")
             try:
                 scene = trimesh.load(output_filename)
-                output_glb_filename = path.join(get_output_directory(), f"mesh_{time.time()}.glb")
+                output_glb_filename = os.path.join(get_output_directory(), f"mesh_{time.time()}.glb")
                 scene.export(output_glb_filename)
                 logging.info(f"Mesh converted and exported successfully to {output_glb_filename}")
             except Exception as e:
@@ -194,7 +194,7 @@ class TripoSRViewer:
             filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
             file = f"{filename_with_batch_num}_{counter:05}_.obj"
             single_mesh.apply_transform(np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]]))
-            single_mesh.export(path.join(full_output_folder, file))
+            single_mesh.export(os.path.join(full_output_folder, file))
             saved.append({
                 "filename": file,
                 "type": "output",
