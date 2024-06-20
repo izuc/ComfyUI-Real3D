@@ -13,6 +13,8 @@ Real3D introduces a novel self-training framework that can benefit from both exi
 
 ### Prerequisites
 - [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
+- [ComfyUI-Mixlab-Nodes](https://github.com/shadowcz007/comfyui-mixlab-nodes)
+- Model used by RembgNode_Mix: [IS-Net_DIS-general-use](https://huggingface.co/NimaBoscarino/IS-Net_DIS-general-use)
 
 ### Installation Steps
 
@@ -27,7 +29,7 @@ Real3D introduces a novel self-training framework that can benefit from both exi
 
 2. **Place Real3D Model and Configuration**
 
-   - Download and place the Real3D model in the checkpoints directory (`ComfyUI/models/checkpoints`).
+   - Download the Real3D model from [here](https://huggingface.co/hwjiang/Real3D) and place it in the checkpoints directory (`ComfyUI/models/checkpoints`).
    - Place the `config.yaml` file in the same directory.
 
 3. **Install Dependencies**
@@ -48,4 +50,3 @@ Use the example workflows provided to test the functionality of the Real3D model
 
 3. **Run the Model**
    - Execute the workflow to run the Real3D model and generate a 3D mesh from the input image.
-
