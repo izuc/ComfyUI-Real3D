@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from folder_paths import get_filename_list, get_full_path, get_save_image_path, get_output_directory
 from comfy.model_management import get_torch_device
 from tsr.system import TSR
+from tsr.utils import save_video  # Import the save_video method
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -105,6 +106,8 @@ class TripoSRSampler:
                 "geometry_resolution": ("INT", {"default": 256, "min": 128, "max": 12288}),
                 "threshold": ("FLOAT", {"default": 25.0, "min": 0.0, "step": 0.01}),
                 "model_save_format": ("STRING", {"default": "obj", "choices": ["obj", "glb"]}),
+                "render": ("BOOL", {"default": False}),
+                "render_num_views": ("INT", {"default": 36, "min": 1, "max": 360})
             },
             "optional": {
                 "reference_mask": ("MASK",)
@@ -115,7 +118,7 @@ class TripoSRSampler:
     FUNCTION = "sample"
     CATEGORY = "Real3D TripoSR"
 
-    def sample(self, model, reference_image, geometry_resolution, threshold, model_save_format, reference_mask=None):
+    def sample(self, model, reference_image, geometry_resolution, threshold, model_save_format, render, render_num_views, reference_mask=None):
         device = get_torch_device()
 
         if not torch.cuda.is_available():
@@ -139,6 +142,16 @@ class TripoSRSampler:
             scene_codes = model.get_latent_from_img([image], device=device)
         timer.end("Running model")
 
+        if render:
+            timer.start("Rendering")
+            render_images = model.render_360(scene_codes, n_views=render_num_views, return_type="pil")
+            output_dir = get_output_directory()
+            os.makedirs(output_dir, exist_ok=True)
+            for ri, render_image in enumerate(render_images[0]):
+                render_image.save(os.path.join(output_dir, f"render_{ri:03d}.png"))
+            save_video(render_images[0], os.path.join(output_dir, "render.mp4"), fps=30)
+            timer.end("Rendering")
+
         timer.start("Extracting mesh")
         meshes = model.extract_mesh(scene_codes, resolution=geometry_resolution, threshold=threshold)
         if not meshes or len(meshes[0].vertices) == 0 or len(meshes[0].faces) == 0:
@@ -150,25 +163,26 @@ class TripoSRSampler:
         
         timer.end("Extracting mesh")
 
-        timer.start("Exporting OBJ mesh")
-        output_filename = os.path.join(get_output_directory(), f"mesh_{time.time()}.obj")
-        try:
-            meshes[0].export(output_filename)
-            logging.info(f"Mesh exported successfully to {output_filename}")
-        except Exception as e:
-            logging.error(f"Error exporting OBJ mesh: {e}")
-        timer.end("Exporting OBJ mesh")
+        output_filename = os.path.join(get_output_directory(), f"mesh_{time.time()}")
 
-        if model_save_format == "glb":
-            timer.start("Converting OBJ to GLB")
+        # Export the mesh in the specified format
+        if model_save_format == "obj":
+            output_filename += ".obj"
             try:
-                scene = trimesh.load(output_filename)
-                output_glb_filename = os.path.join(get_output_directory(), f"mesh_{time.time()}.glb")
-                scene.export(output_glb_filename)
-                logging.info(f"Mesh converted and exported successfully to {output_glb_filename}")
+                meshes[0].export(output_filename)
+                logging.info(f"Mesh exported successfully to {output_filename}")
             except Exception as e:
-                logging.error(f"Error converting OBJ to GLB: {e}")
-            timer.end("Converting OBJ to GLB")
+                logging.error(f"Error exporting OBJ mesh: {e}")
+        elif model_save_format == "glb":
+            output_filename += ".glb"
+            timer.start("Exporting GLB mesh")
+            try:
+                scene = trimesh.Scene(meshes)
+                scene.export(output_filename)
+                logging.info(f"Mesh exported successfully to {output_filename}")
+            except Exception as e:
+                logging.error(f"Error exporting GLB mesh: {e}")
+            timer.end("Exporting GLB mesh")
 
         return ([meshes[0]],)
 
