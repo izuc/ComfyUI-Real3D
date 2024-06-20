@@ -158,9 +158,25 @@ class TripoSRSampler:
 
         # Ensure mesh is valid before exporting
         if meshes and len(meshes[0].vertices) > 0 and len(meshes[0].faces) > 0:
-            output_filename = os.path.join(get_output_directory(), f"mesh_{time.time()}.{model_save_format}")
-            meshes[0].export(output_filename)
-            logging.info(f"Mesh exported successfully to {output_filename}.")
+            output_filename_base = os.path.join(get_output_directory(), f"mesh_{time.time()}")
+
+            # Export OBJ
+            output_filename_obj = output_filename_base + ".obj"
+            try:
+                meshes[0].export(output_filename_obj)
+                logging.info(f"Mesh exported successfully to {output_filename_obj}.")
+            except Exception as e:
+                logging.error(f"Error exporting OBJ mesh: {e}")
+
+            # Export GLB if specified
+            if model_save_format == "glb":
+                output_filename_glb = output_filename_base + ".glb"
+                try:
+                    scene = trimesh.Scene(meshes)
+                    scene.export(output_filename_glb)
+                    logging.info(f"Mesh exported successfully to {output_filename_glb}.")
+                except Exception as e:
+                    logging.error(f"Error exporting GLB mesh: {e}")
         else:
             logging.error("No valid mesh extracted.")
 
