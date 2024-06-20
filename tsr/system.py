@@ -25,7 +25,29 @@ from .utils import (
     get_ray_directions
 )
 
+class MarchingCubeHelper(torch.nn.Module):
+    def __init__(self, resolution):
+        super().__init__()
+        self.resolution = resolution
+        self.points_range = [-1.0, 1.0]
+        self.grid_vertices = self.create_grid_vertices()
 
+    def create_grid_vertices(self):
+        x = np.linspace(self.points_range[0], self.points_range[1], self.resolution)
+        y = np.linspace(self.points_range[0], self.points_range[1], self.resolution)
+        z = np.linspace(self.points_range[0], self.points_range[1], self.resolution)
+        grid_x, grid_y, grid_z = np.meshgrid(x, y, z, indexing='ij')
+        grid_vertices = torch.from_numpy(np.stack([grid_x, grid_y, grid_z], axis=-1).astype(np.float32))
+        return grid_vertices
+
+    def update_grid_vertices(self, resolution):
+        self.resolution = resolution
+        self.grid_vertices = self.create_grid_vertices()
+
+    def forward(self, x):
+        # Implement the marching cubes algorithm here
+        pass
+        
 class TSR(BaseModule):
     @dataclass
     class Config(BaseModule.Config):
@@ -210,9 +232,10 @@ class TSR(BaseModule):
             and self.isosurface_helper.resolution == resolution
         ):
             return
-        self.isosurface_helper = MarchingCubeHelper(resolution)
-        # Reshape the grid_vertices tensor to have 3 dimensions
-        self.isosurface_helper.grid_vertices = self.isosurface_helper.grid_vertices.reshape(resolution, resolution, resolution, 3)
+        if self.isosurface_helper is None:
+            self.isosurface_helper = MarchingCubeHelper(resolution)
+        else:
+            self.isosurface_helper.update_grid_vertices(resolution)
 
     def extract_mesh(self, scene_codes, resolution: int = 256, threshold: float = 25.0, chunk_size: int = 128, batch_size: int = 8):
         self.set_marching_cubes_resolution(resolution)
