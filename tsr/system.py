@@ -237,6 +237,10 @@ class TSR(BaseModule):
 
             logging.info(f"Density shape: {density.shape}, min: {density.min()}, max: {density.max()}")
 
+            if density.numel() == 0:
+                logging.error("Density tensor is empty.")
+                continue
+
             num_vertices = density.shape[0]
             v_pos_list = []
             t_pos_idx_list = []
@@ -250,12 +254,14 @@ class TSR(BaseModule):
                     if v_pos_batch.numel() > 0 and t_pos_idx_batch.numel() > 0:
                         v_pos_list.append(v_pos_batch)
                         t_pos_idx_list.append(t_pos_idx_batch)
+                    else:
+                        logging.error(f"No vertices or faces found in batch {start} to {end}.")
                 except Exception as e:
                     logging.error(f"Error during marching cubes: {e}")
                     continue
 
             if not v_pos_list or not t_pos_idx_list:
-                logging.error("No valid vertices or faces found.")
+                logging.error("No valid vertices or faces found after processing all batches.")
                 continue
 
             v_pos = torch.cat(v_pos_list, dim=0)
@@ -282,6 +288,10 @@ class TSR(BaseModule):
                     v_pos,
                     scene_code,
                 )["color"]
+
+            if color.numel() == 0:
+                logging.error("Color tensor is empty.")
+                continue
 
             mesh = trimesh.Trimesh(
                 vertices=v_pos.cpu().numpy(),
