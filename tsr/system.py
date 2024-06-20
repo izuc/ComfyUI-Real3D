@@ -59,6 +59,7 @@ class TSR(BaseModule):
             weight_path = os.path.join(pretrained_model_name_or_path, weight_name)
             use_saved_ckpt = True
         else:
+            # Assume it's a Hugging Face Hub repo if not a local path
             config_path = hf_hub_download(
                 repo_id=pretrained_model_name_or_path, filename=config_name
             )
@@ -73,7 +74,7 @@ class TSR(BaseModule):
         ckpt = torch.load(weight_path, map_location="cpu")
         if use_saved_ckpt:
             if "module" in list(ckpt["state_dict"].keys())[0]:
-                ckpt = {key.replace('module.',''): item for key, item in ckpt["state_dict"].items()}
+                ckpt = {key.replace('module.', ''): item for key, item in ckpt["state_dict"].items()}
             else:
                 ckpt = ckpt["state_dict"]
         model.load_state_dict(ckpt)
