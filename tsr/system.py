@@ -278,15 +278,17 @@ class TSR(BaseModule):
                 )["density_act"]
     
             # Check the shape of density
-            print(f"Density tensor shape: {density.shape}")
+            print(f"Density tensor shape before reshape: {density.shape}")
             
-            # Check the size of density
-            expected_size = (max_x - min_x) * (max_y - min_y) * (max_z - min_z)
-            if density.numel() != expected_size:
-                raise ValueError(f"Density tensor has incorrect number of elements. Expected {expected_size}, got {density.numel()}")
+            # Reshape density to expected 3D shape
+            if density.numel() == self.isosurface_helper.resolution ** 3:
+                density = density.view(self.isosurface_helper.resolution, self.isosurface_helper.resolution, self.isosurface_helper.resolution)
+            else:
+                raise ValueError(f"Cannot reshape density tensor of shape {density.shape} to {[self.isosurface_helper.resolution, self.isosurface_helper.resolution, self.isosurface_helper.resolution]}")
     
             # Apply marching cubes for the current chunk
             v_pos_chunk, t_pos_idx_chunk = self.isosurface_helper(-(density - threshold))
+
     
             # Offset the vertex positions based on the chunk bounds
             v_pos_chunk[:, 0] += min_x
