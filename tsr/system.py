@@ -1,3 +1,4 @@
+import logging
 import math
 import os
 from dataclasses import dataclass, field
@@ -233,7 +234,19 @@ class TSR(BaseModule):
                     ),
                     scene_code,
                 )["density_act"]
+            
             v_pos, t_pos_idx = self.isosurface_helper(-(density - threshold))
+            
+            # Add detailed logging here
+            logging.info(f"v_pos shape: {v_pos.shape}")
+            logging.info(f"t_pos_idx shape: {t_pos_idx.shape}")
+            logging.info(f"First 10 vertices:\n{v_pos[:10]}")
+            logging.info(f"First 10 faces:\n{t_pos_idx[:10]}")
+
+            if t_pos_idx.max() >= v_pos.shape[0]:
+                logging.error(f"Invalid face index found: {t_pos_idx.max()} exceeds number of vertices: {v_pos.shape[0]}")
+                continue
+
             v_pos = scale_tensor(
                 v_pos,
                 self.isosurface_helper.points_range,
