@@ -1,3 +1,4 @@
+import logging
 from typing import Callable, Optional, Tuple
 
 import numpy as np
@@ -39,30 +40,29 @@ class MarchingCubeHelper(IsosurfaceHelper):
         self,
         level: torch.FloatTensor,
     ) -> Tuple[torch.FloatTensor, torch.LongTensor]:
-        # Debug print to check the shape of the tensor before reshaping
-        print(f"Original level shape: {level.shape}, expected reshape to: {[self.resolution, self.resolution, self.resolution]}")
-
         # Squeeze to remove the extra dimension
         level = level.squeeze()
+
+        # Adjust reshape based on the actual shape of level tensor
+        if level.numel() == self.resolution ** 3:
+            level = level.view(self.resolution, self.resolution, self.resolution)
+        else:
+            raise ValueError(f"Cannot reshape level tensor of shape {level.shape} to {[self.resolution, self.resolution, self.resolution]}")
 
         # Normalize the density values
         min_val, max_val = level.min().item(), level.max().item()
         if max_val - min_val != 0:
             level = (level - min_val) / (max_val - min_val)
         else:
-            raise ValueError("Density values have zero range, normalization not possible.")
-        
-        # Adjust reshape based on the actual shape of level tensor
-        if level.numel() == self.resolution ** 3:
-            level = -level.view(self.resolution, self.resolution, self.resolution)
-        else:
-            raise ValueError(f"Cannot reshape level tensor of shape {level.shape} to {[self.resolution, self.resolution, self.resolution]}")
-        
+            level = torch.full_like(level, 0.5)  # Set level to a constant value if range is zero
+
+        logging.info(f"Original level shape: {level.shape}, expected reshape to: {[self.resolution, self.resolution, self.resolution]}")
+
         try:
             # Adjust the threshold value if needed
             v_pos, t_pos_idx = self.mc_func(level.detach().cpu(), 0.5)
         except Exception as e:
-            print(f"Error during marching cubes: {e}")
+            logging.error(f"Error during marching cubes: {e}")
             raise
 
         # Validate vertices and faces
