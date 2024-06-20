@@ -43,7 +43,7 @@ class MarchingCubeHelper(IsosurfaceHelper):
         print(f"Original level shape: {level.shape}, expected reshape to: {[self.resolution, self.resolution, self.resolution]}")
         
         # Adjust reshape based on the actual shape of level tensor
-        if level.shape[0] == self.resolution**3:
+        if level.numel() == self.resolution ** 3:
             level = -level.view(self.resolution, self.resolution, self.resolution)
         else:
             raise ValueError(f"Cannot reshape level tensor of shape {level.shape} to {[self.resolution, self.resolution, self.resolution]}")
