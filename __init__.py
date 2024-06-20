@@ -143,7 +143,7 @@ class TripoSRSampler:
 
         timer.start("Exporting mesh")
         meshes = model.extract_mesh(scene_codes, resolution=geometry_resolution, threshold=threshold)
-        meshes[0].export(path.join(get_output_directory(), f"mesh_{time.time()}.{model_save_format}"))
+        meshes[0].export(os.path.join(get_output_directory(), f"mesh_{time.time()}.{model_save_format}"))
         timer.end("Exporting mesh")
 
         return ([meshes[0]],)
@@ -170,7 +170,7 @@ class TripoSRViewer:
             filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
             file = f"{filename_with_batch_num}_{counter:05}_.obj"
             single_mesh.apply_transform(np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]]))
-            single_mesh.export(path.join(full_output_folder, file))
+            single_mesh.export(os.path.join(full_output_folder, file))
             saved.append({
                 "filename": file,
                 "type": "output",
