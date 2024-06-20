@@ -1,4 +1,3 @@
-import logging
 import math
 import os
 from dataclasses import dataclass, field
@@ -71,21 +70,13 @@ class TSR(BaseModule):
         cfg = OmegaConf.load(config_path)
         OmegaConf.resolve(cfg)
         model = cls(cfg)
-        
-        # Load the checkpoint
-        checkpoint = torch.load(weight_path, map_location="cpu")
+        ckpt = torch.load(weight_path, map_location="cpu")
         if use_saved_ckpt:
-            if "state_dict" in checkpoint:
-                state_dict = checkpoint["state_dict"]
+            if "module" in list(ckpt["state_dict"].keys())[0]:
+                ckpt = {key.replace('module.',''): item for key, item in ckpt["state_dict"].items()}
             else:
-                state_dict = checkpoint
-        else:
-            state_dict = checkpoint
-        
-        # Filter out unnecessary keys and load state_dict
-        state_dict = {k: v for k, v in state_dict.items() if k in model.state_dict()}
-        model.load_state_dict(state_dict, strict=False)
-
+                ckpt = ckpt["state_dict"]
+        model.load_state_dict(ckpt)
         return model
 
     def configure(self):
@@ -234,19 +225,7 @@ class TSR(BaseModule):
                     ),
                     scene_code,
                 )["density_act"]
-            
             v_pos, t_pos_idx = self.isosurface_helper(-(density - threshold))
-            
-            # Add detailed logging here
-            logging.info(f"v_pos shape: {v_pos.shape}")
-            logging.info(f"t_pos_idx shape: {t_pos_idx.shape}")
-            logging.info(f"First 10 vertices:\n{v_pos[:10]}")
-            logging.info(f"First 10 faces:\n{t_pos_idx[:10]}")
-
-            if t_pos_idx.max() >= v_pos.shape[0]:
-                logging.error(f"Invalid face index found: {t_pos_idx.max()} exceeds number of vertices: {v_pos.shape[0]}")
-                continue
-
             v_pos = scale_tensor(
                 v_pos,
                 self.isosurface_helper.points_range,
@@ -265,4 +244,3 @@ class TSR(BaseModule):
             )
             meshes.append(mesh)
         return meshes
-
