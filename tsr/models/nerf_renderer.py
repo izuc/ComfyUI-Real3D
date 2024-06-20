@@ -38,6 +38,12 @@ class TriplaneNeRFRenderer(BaseModule):
         ), "chunk_size must be a non-negative integer (0 for no chunking)."
         self.chunk_size = chunk_size
 
+    def set_num_samples_per_ray(self, num_samples: int):
+        assert (
+            num_samples > 0
+        ), "number of points sampler per ray must be a non-negative integer."
+        self.cfg.num_samples_per_ray = num_samples
+
     def query_triplane(
         self,
         decoder: torch.nn.Module,
@@ -96,8 +102,13 @@ class TriplaneNeRFRenderer(BaseModule):
         triplane: torch.Tensor,
         rays_o: torch.Tensor,
         rays_d: torch.Tensor,
+        return_mask: bool,
         **kwargs,
-    ):
+    ):  
+        
+        # for mannual casting
+        dtype = triplane.dtype
+
         rays_shape = rays_o.shape[:-1]
         rays_o = rays_o.view(-1, 3)
         rays_d = rays_d.view(-1, 3)
@@ -105,13 +116,18 @@ class TriplaneNeRFRenderer(BaseModule):
 
         t_near, t_far, rays_valid = rays_intersect_bbox(rays_o, rays_d, self.cfg.radius)
         t_near, t_far = t_near[rays_valid], t_far[rays_valid]
+        rays_o, rays_d = rays_o[rays_valid], rays_d[rays_valid]
+
+        # casting
+        rays_o, rays_d = rays_o.to(dtype), rays_d.to(dtype)
+        t_near, t_far = t_near.to(dtype), t_far.to(dtype)
 
         t_vals = torch.linspace(
-            0, 1, self.cfg.num_samples_per_ray + 1, device=triplane.device
+            0, 1, self.cfg.num_samples_per_ray + 1, device=triplane.device,
         )
         t_mid = (t_vals[:-1] + t_vals[1:]) / 2.0
         z_vals = t_near * (1 - t_mid[None]) + t_far * t_mid[None]  # (N_rays, N_samples)
-
+        # print(rays_o.shape, z_vals.shape, rays_d.shape)
         xyz = (
             rays_o[:, None, :] + z_vals[..., None] * rays_d[..., None, :]
         )  # (N_rays, N_sample, 3)
@@ -121,6 +137,10 @@ class TriplaneNeRFRenderer(BaseModule):
             positions=xyz,
             triplane=triplane,
         )
+
+        # casting
+        dtype = mlp_out['density'].dtype
+        mlp_out["density_act"] = mlp_out['density_act'].to(dtype)
 
         eps = 1e-10
         # deltas = z_vals[:, 1:] - z_vals[:, :-1] # (N_rays, N_samples)
@@ -145,9 +165,14 @@ class TriplaneNeRFRenderer(BaseModule):
         opacity = torch.zeros(n_rays, dtype=opacity_.dtype, device=opacity_.device)
         comp_rgb[rays_valid] = comp_rgb_
         opacity[rays_valid] = opacity_
+        # comp_rgb = comp_rgb_
+        # opacity = opacity_
 
         comp_rgb += 1 - opacity[..., None]
         comp_rgb = comp_rgb.view(*rays_shape, 3)
+
+        if return_mask:
+            return comp_rgb, opacity.view(*rays_shape, 1)
 
         return comp_rgb
 
@@ -157,18 +182,19 @@ class TriplaneNeRFRenderer(BaseModule):
         triplane: torch.Tensor,
         rays_o: torch.Tensor,
         rays_d: torch.Tensor,
+        return_mask: bool = False
     ) -> Dict[str, torch.Tensor]:
         if triplane.ndim == 4:
-            comp_rgb = self._forward(decoder, triplane, rays_o, rays_d)
+            comp_rgb = self._forward(decoder, triplane, rays_o, rays_d, return_mask)
         else:
-            comp_rgb = torch.stack(
-                [
-                    self._forward(decoder, triplane[i], rays_o[i], rays_d[i])
-                    for i in range(triplane.shape[0])
-                ],
-                dim=0,
-            )
-
+            all_comp_rgb, all_opacity = [], []
+            for i in range(triplane.shape[0]):
+                comp_rgb, opacity = self._forward(decoder, triplane[i], rays_o[i], rays_d[i], return_mask)
+                all_comp_rgb.append(comp_rgb)
+                all_opacity.append(opacity)
+            comp_rgb = torch.stack(all_comp_rgb)
+            opacity = torch.stack(all_opacity)
+            comp_rgb = (comp_rgb, opacity)
         return comp_rgb
 
     def train(self, mode=True):
