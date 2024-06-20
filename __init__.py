@@ -79,7 +79,7 @@ class TripoSRModelLoader:
             device = "cpu"
 
         if not self.initialized_model:
-            print("Loading TripoSR model")
+            logging.info("Loading TripoSR model")
             model_path = get_full_path("checkpoints", model)
             model_dir = os.path.dirname(model_path)
             model_filename = os.path.basename(model_path)
