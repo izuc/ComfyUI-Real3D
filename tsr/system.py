@@ -260,11 +260,11 @@ class TSR(BaseModule):
             min_x, max_x = i, min(i + chunk_size, self.isosurface_helper.resolution)
             min_y, max_y = j, min(j + chunk_size, self.isosurface_helper.resolution)
             min_z, max_z = k, min(k + chunk_size, self.isosurface_helper.resolution)
-
+    
             # Get the grid vertices for the current chunk
             grid_vertices = self.isosurface_helper.grid_vertices[min_x:max_x, min_y:max_y, min_z:max_z]
             grid_vertices = grid_vertices.reshape(-1, 3).to(torch.float32).to(scene_code.device)
-
+    
             # Query the triplane for the current chunk
             with torch.no_grad():
                 density = self.renderer.query_triplane(
@@ -276,41 +276,42 @@ class TSR(BaseModule):
                     ),
                     scene_code,
                 )["density_act"]
-
+    
+            # Check the shape of density
+            print(f"Density tensor shape: {density.shape}")
+            
             # Check the size of density
             expected_size = (max_x - min_x) * (max_y - min_y) * (max_z - min_z)
-            print(f"Density tensor size: {density.numel()}, expected size: {expected_size}")
             if density.numel() != expected_size:
                 raise ValueError(f"Density tensor has incorrect number of elements. Expected {expected_size}, got {density.numel()}")
-
+    
             # Apply marching cubes for the current chunk
             v_pos_chunk, t_pos_idx_chunk = self.isosurface_helper(-(density - threshold))
-
+    
             # Offset the vertex positions based on the chunk bounds
             v_pos_chunk[:, 0] += min_x
             v_pos_chunk[:, 1] += min_y
             v_pos_chunk[:, 2] += min_z
-
+    
             # Offset the face indices based on the number of vertices in previous chunks
             t_pos_idx_chunk += len(batch_vertices)
-
+    
             # Scale the vertex positions to the original range
             v_pos_chunk = scale_tensor(
                 v_pos_chunk,
                 self.isosurface_helper.points_range,
                 (-self.renderer.cfg.radius, self.renderer.cfg.radius),
             )
-
+    
             batch_vertices.append(v_pos_chunk)
             batch_faces.append(t_pos_idx_chunk)
-
+    
             # Free up memory
             del density, v_pos_chunk, t_pos_idx_chunk
             torch.cuda.empty_cache()
-
+    
         # Concatenate the batch vertices and faces
         batch_vertices = torch.cat(batch_vertices, dim=0)
         batch_faces = torch.cat(batch_faces, dim=0)
-
+    
         return batch_vertices, batch_faces
-
