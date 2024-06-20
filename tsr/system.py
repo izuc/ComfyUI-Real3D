@@ -59,7 +59,6 @@ class TSR(BaseModule):
             weight_path = os.path.join(pretrained_model_name_or_path, weight_name)
             use_saved_ckpt = True
         else:
-            # Assume it's a Hugging Face Hub repo if not a local path
             config_path = hf_hub_download(
                 repo_id=pretrained_model_name_or_path, filename=config_name
             )
@@ -71,13 +70,21 @@ class TSR(BaseModule):
         cfg = OmegaConf.load(config_path)
         OmegaConf.resolve(cfg)
         model = cls(cfg)
-        ckpt = torch.load(weight_path, map_location="cpu")
+        
+        # Load the checkpoint
+        checkpoint = torch.load(weight_path, map_location="cpu")
         if use_saved_ckpt:
-            if "module" in list(ckpt["state_dict"].keys())[0]:
-                ckpt = {key.replace('module.', ''): item for key, item in ckpt["state_dict"].items()}
+            if "state_dict" in checkpoint:
+                state_dict = checkpoint["state_dict"]
             else:
-                ckpt = ckpt["state_dict"]
-        model.load_state_dict(ckpt)
+                state_dict = checkpoint
+        else:
+            state_dict = checkpoint
+        
+        # Filter out unnecessary keys and load state_dict
+        state_dict = {k: v for k, v in state_dict.items() if k in model.state_dict()}
+        model.load_state_dict(state_dict, strict=False)
+
         return model
 
     def configure(self):
