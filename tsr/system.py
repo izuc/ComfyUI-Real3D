@@ -215,43 +215,68 @@ class TSR(BaseModule):
         else:
             self.isosurface_helper.update_grid_vertices(resolution)
 
-    def extract_mesh(self, scene_codes, resolution: int = 256, threshold: float = 25.0, chunk_size: int = 128, batch_size: int = 8):
+    def extract_mesh(self, scene_codes, resolution: int = 256, threshold: float = 25.0):
         self.set_marching_cubes_resolution(resolution)
         meshes = []
         for scene_code in scene_codes:
-            vertices = []
-            faces = []
-            chunk_batch = []
-            for i in range(0, resolution, chunk_size):
-                for j in range(0, resolution, chunk_size):
-                    for k in range(0, resolution, chunk_size):
-                        chunk_batch.append((i, j, k))
-                        if len(chunk_batch) == batch_size:
-                            # Extract mesh for the current batch of chunks
-                            batch_vertices, batch_faces = self.extract_mesh_chunk_batch(scene_code, chunk_batch, chunk_size, threshold)
-                            vertices.append(batch_vertices)
-                            faces.append(batch_faces)
-                            chunk_batch = []
-
-            # Process any remaining chunks
-            if chunk_batch:
-                batch_vertices, batch_faces = self.extract_mesh_chunk_batch(scene_code, chunk_batch, chunk_size, threshold)
-                vertices.append(batch_vertices)
-                faces.append(batch_faces)
-
-            # Combine chunk meshes into a single mesh
-            vertices = torch.cat(vertices, dim=0)
-            faces = torch.cat(faces, dim=0)
-
-            # Create trimesh object
+            with torch.no_grad():
+                density = self.renderer.query_triplane(
+                    self.decoder,
+                    scale_tensor(
+                        self.isosurface_helper.grid_vertices.to(scene_codes.device),
+                        self.isosurface_helper.points_range,
+                        (-self.renderer.cfg.radius, self.renderer.cfg.radius),
+                    ),
+                    scene_code,
+                )["density_act"]
+    
+            logger.info(f"Density shape: {density.shape}, min: {density.min()}, max: {density.max()}")
+    
+            try:
+                v_pos, t_pos_idx = self.isosurface_helper(-(density - threshold))
+            except Exception as e:
+                logger.error(f"Error during marching cubes: {e}")
+                continue
+    
+            logger.info(f"v_pos shape: {v_pos.shape}")
+            logger.info(f"t_pos_idx shape: {t_pos_idx.shape}")
+            logger.info(f"First 10 vertices:\n{v_pos[:10]}")
+            logger.info(f"First 10 faces:\n{t_pos_idx[:10]}")
+    
+            if t_pos_idx.max() >= v_pos.shape[0]:
+                logger.error(f"Invalid face index found: {t_pos_idx.max()} exceeds number of vertices: {v_pos.shape[0]}")
+                continue
+    
+            v_pos = scale_tensor(
+                v_pos,
+                self.isosurface_helper.points_range,
+                (-self.renderer.cfg.radius, self.renderer.cfg.radius),
+            )
+    
+            with torch.no_grad():
+                color = self.renderer.query_triplane(
+                    self.decoder,
+                    v_pos,
+                    scene_code,
+                )["color"]
+    
+            if color.numel() == 0:
+                logger.error("Color tensor is empty.")
+                continue
+    
             mesh = trimesh.Trimesh(
-                vertices=vertices.cpu().numpy(),
-                faces=faces.cpu().numpy(),
+                vertices=v_pos.cpu().numpy(),
+                faces=t_pos_idx.cpu().numpy(),
+                vertex_colors=color.cpu().numpy(),
             )
             meshes.append(mesh)
-
+    
+            # Free up memory
+            del density, v_pos, t_pos_idx, color
+            torch.cuda.empty_cache()
+    
         return meshes
-
+    
     def extract_mesh_chunk_batch(self, scene_code, chunk_batch, chunk_size, threshold):
         batch_vertices = []
         batch_faces = []
@@ -278,11 +303,11 @@ class TSR(BaseModule):
                 )["density_act"]
     
             # Log the shape of density
-            logging.info(f"Density tensor shape before squeeze: {density.shape}")
+            logger.info(f"Density tensor shape before squeeze: {density.shape}")
             
             # Squeeze the density tensor to remove the extra dimension
             density = density.squeeze()
-            logging.info(f"Density tensor shape after squeeze: {density.shape}")
+            logger.info(f"Density tensor shape after squeeze: {density.shape}")
     
             # Reshape density to expected 3D shape
             if density.numel() == self.isosurface_helper.resolution ** 3:
