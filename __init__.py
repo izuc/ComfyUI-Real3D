@@ -8,6 +8,9 @@ import time
 import rembg
 import trimesh
 
+# Add the directory containing your custom module to the Python path
+sys.path.insert(0, os.path.dirname(__file__))
+
 from folder_paths import get_filename_list, get_full_path, get_save_image_path, get_output_directory
 from comfy.model_management import get_torch_device
 from tsr.system import TSR
