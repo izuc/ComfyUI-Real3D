@@ -1,34 +1,51 @@
-# ComfyUI-Flowty-TripoSR
+# ComfyUI-Real3D
 
-This is a custom node that lets you use TripoSR right from ComfyUI.
+## Acknowledgement
+This project integrates the Real3D model, based on TripoSR, into ComfyUI. Real3D is a state-of-the-art Large Reconstruction Model (LRM) for 3D reconstruction from single-view real-world images. The ComfyUI-Real3D module is built upon the ComfyUI-Flowty-TripoSR code, modified to use the Real3D model instead. Special thanks to:
 
-[TripoSR](https://github.com/VAST-AI-Research/TripoSR) is a state-of-the-art open-source model for fast feedforward 3D reconstruction from a single image, collaboratively developed by Tripo AI and Stability AI. (TL;DR it creates a 3d model from an image.)
+- [Hanwen Jiang](https://github.com/hwjiang1510) for creating [Real3D](https://github.com/hwjiang1510/Real3D)
+- [flowtyone](https://github.com/flowtyone) for creating [ComfyUI-Flowty-TripoSR](https://github.com/flowtyone/ComfyUI-Flowty-TripoSR)
 
-![example](workflow-sample.png)
+## Overview
+Real3D introduces a novel self-training framework that can benefit from both existing 3D/multi-view synthetic data and diverse single-view real images. This repository aims to simplify the use of Real3D within ComfyUI for fast feedforward 3D reconstruction from a single image.
 
-I've created this node for experimentation, feel free to submit PRs for performance improvements etc.
+## Installation
 
-### Installation:
-* Install ComfyUI
-* Clone this repo into ```custom_nodes```:
-  ```shell
-  $ cd ComfyUI/custom_nodes
-  $ git clone https://github.com/flowtyone/ComfyUI-Flowty-TripoSR.git
-  ```
-* Install dependencies:
-  ```shell
-  $ cd ComfyUI-Flowty-TripoSR
-  $ pip install -r requirements.txt
-  ```
-* [Download TripoSR](https://huggingface.co/stabilityai/TripoSR/blob/main/model.ckpt) and place it in ```ComfyUI/models/checkpoints```
-* Start ComfyUI (or restart)
+### Prerequisites
+- [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
 
-Special thanks to MrForExample for creating [ComfyUI-3D-Pack](https://github.com/MrForExample/ComfyUI-3D-Pack). Code from that node pack was used to display 3d models in comfyui.
+### Installation Steps
 
-This is a community project from [flowt.ai](https://flowt.ai). If you like it, check us out!
+1. **Install ComfyUI-Real3D**
 
-<picture>
- <source media="(prefers-color-scheme: dark)" srcset="logo-dark.svg" height="50">
- <source media="(prefers-color-scheme: light)" srcset="logo.svg" height="50">
- <img alt="flowt.ai logo" src="flowt.png" height="50">
-</picture>
+   - Set ComfyUI manager to "weak" security.
+   - Import the Git repository in the manager:
+
+     ```sh
+     https://github.com/izuc/ComfyUI-Real3D.git
+     ```
+
+2. **Place Real3D Model and Configuration**
+
+   - Download and place the Real3D model in the checkpoints directory (`ComfyUI/models/checkpoints`).
+   - Place the `config.yaml` file in the same directory.
+
+3. **Install Dependencies**
+   
+   ComfyUI will automatically read the `requirements.txt` file and install the necessary dependencies.
+
+## Usage
+
+### Example Workflow
+Use the example workflows provided to test the functionality of the Real3D model in ComfyUI. You can find these workflows in the repository.
+
+### Running the Model
+1. **Load an Image**
+   - Load your input image in ComfyUI.
+   
+2. **Configure Parameters**
+   - Set the parameters such as geometry resolution, threshold, and model save format.
+
+3. **Run the Model**
+   - Execute the workflow to run the Real3D model and generate a 3D mesh from the input image.
+
