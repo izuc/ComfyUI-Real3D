@@ -279,6 +279,7 @@ class TSR(BaseModule):
 
             # Check the size of density
             expected_size = (max_x - min_x) * (max_y - min_y) * (max_z - min_z)
+            print(f"Density tensor size: {density.numel()}, expected size: {expected_size}")
             if density.numel() != expected_size:
                 raise ValueError(f"Density tensor has incorrect number of elements. Expected {expected_size}, got {density.numel()}")
 
