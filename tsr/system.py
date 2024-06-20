@@ -53,7 +53,7 @@ class MarchingCubeHelper(torch.nn.Module):
             volume = volume[:expected_size]  # Take the first expected_size elements
         elif volume_size < expected_size:
             padding_size = expected_size - volume_size
-            padding_tensor = torch.zeros_like(volume[:1]).repeat(padding_size)  # Create padding tensor with the same shape as volume
+            padding_tensor = torch.zeros(padding_size, dtype=volume.dtype, device=volume.device)  # Create 1D padding tensor
             volume = torch.cat([volume, padding_tensor])  # Pad with zeros
     
         volume = volume.reshape(self.resolution, self.resolution, self.resolution).detach().cpu().numpy()
