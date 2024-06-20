@@ -26,44 +26,6 @@ from .utils import (
     get_ray_directions
 )
 
-class MarchingCubeHelper(torch.nn.Module):
-    def __init__(self, resolution):
-        super().__init__()
-        self.resolution = resolution
-        self.points_range = [-1.0, 1.0]
-        self.grid_vertices = self.create_grid_vertices()
-
-    def create_grid_vertices(self):
-        x = np.linspace(self.points_range[0], self.points_range[1], self.resolution)
-        y = np.linspace(self.points_range[0], self.points_range[1], self.resolution)
-        z = np.linspace(self.points_range[0], self.points_range[1], self.resolution)
-        grid_x, grid_y, grid_z = np.meshgrid(x, y, z, indexing='ij')
-        grid_vertices = torch.from_numpy(np.stack([grid_x, grid_y, grid_z], axis=-1).astype(np.float32))
-        return grid_vertices
-
-    def update_grid_vertices(self, resolution):
-        self.resolution = resolution
-        self.grid_vertices = self.create_grid_vertices()
-
-    def forward(self, volume):
-        volume_size = volume.numel()
-        expected_size = self.resolution ** 3
-    
-        if volume_size > expected_size:
-            volume = volume[:expected_size]  # Take the first expected_size elements
-        elif volume_size < expected_size:
-            padding_size = expected_size - volume_size
-            padding_tensor = torch.zeros(padding_size, dtype=volume.dtype, device=volume.device)  # Create 1D padding tensor
-            volume = torch.cat([volume.view(-1), padding_tensor])  # Flatten volume and concatenate with padding tensor
-    
-        volume = volume.reshape(self.resolution, self.resolution, self.resolution).detach().cpu().numpy()
-        verts, faces, _, _ = measure.marching_cubes(volume, level=0, spacing=(1.0, 1.0, 1.0))
-        verts = np.array(verts, dtype=np.float32)  # Create a copy of verts with float32 dtype
-        faces = np.array(faces, dtype=np.int64)   # Create a copy of faces with int64 dtype
-        verts = torch.from_numpy(verts)
-        faces = torch.from_numpy(faces)
-        return verts, faces
-        
 class TSR(BaseModule):
     @dataclass
     class Config(BaseModule.Config):
