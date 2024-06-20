@@ -205,15 +205,9 @@ class TSR(BaseModule):
         return images
 
     def set_marching_cubes_resolution(self, resolution: int):
-        if (
-            self.isosurface_helper is not None
-            and self.isosurface_helper.resolution == resolution
-        ):
+        if self.isosurface_helper is not None and self.isosurface_helper.resolution == resolution:
             return
-        if self.isosurface_helper is None:
-            self.isosurface_helper = MarchingCubeHelper(resolution)
-        else:
-            self.isosurface_helper.update_grid_vertices(resolution)
+        self.isosurface_helper = MarchingCubeHelper(resolution)
 
     def extract_mesh(self, scene_codes, resolution: int = 256, threshold: float = 25.0):
         self.set_marching_cubes_resolution(resolution)
