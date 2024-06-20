@@ -303,6 +303,10 @@ class TSR(BaseModule):
             density = density.squeeze()
             logging.info(f"Density tensor shape after squeeze: {density.shape}")
     
+            # Normalize the density values
+            min_val, max_val = density.min().item(), density.max().item()
+            density = (density - min_val) / (max_val - min_val)
+    
             # Reshape density to expected 3D shape
             if density.numel() == self.isosurface_helper.resolution ** 3:
                 density = density.view(self.isosurface_helper.resolution, self.isosurface_helper.resolution, self.isosurface_helper.resolution)
