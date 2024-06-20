@@ -93,7 +93,10 @@ class TripoSRSampler:
         if reference_mask is not None:
             image = fill_background(image)
         image = image.convert('RGB')
-        scene_codes = model([image], device)
+
+        rays_o, rays_d = get_rays(image)  # Ensure you have a function to get rays_o and rays_d
+
+        scene_codes = model.forward(inputs=[image], rays_o=rays_o, rays_d=rays_d)
         meshes = model.extract_mesh(scene_codes, resolution=geometry_resolution, threshold=threshold)
         return ([meshes[0]],)
 
