@@ -41,6 +41,9 @@ class MarchingCubeHelper(IsosurfaceHelper):
     ) -> Tuple[torch.FloatTensor, torch.LongTensor]:
         # Debug print to check the shape of the tensor before reshaping
         print(f"Original level shape: {level.shape}, expected reshape to: {[self.resolution, self.resolution, self.resolution]}")
+
+        # Squeeze to remove the extra dimension
+        level = level.squeeze()
         
         # Adjust reshape based on the actual shape of level tensor
         if level.numel() == self.resolution ** 3:
@@ -50,10 +53,14 @@ class MarchingCubeHelper(IsosurfaceHelper):
         
         try:
             v_pos, t_pos_idx = self.mc_func(level.detach(), 0.0)
-        except AttributeError:
-            print("torchmcubes was not compiled with CUDA support, use CPU version instead.")
-            v_pos, t_pos_idx = self.mc_func(level.detach().cpu(), 0.0)
+        except Exception as e:
+            print(f"Error during marching cubes: {e}")
+            raise
+
+        # Validate vertices and faces
+        if v_pos.size(0) == 0 or t_pos_idx.size(0) == 0:
+            raise ValueError("Marching cubes returned empty vertices or faces")
+
         v_pos = v_pos[..., [2, 1, 0]]
         v_pos = v_pos / (self.resolution - 1.0)
         return v_pos.to(level.device), t_pos_idx.to(level.device)
-
