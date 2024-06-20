@@ -47,7 +47,10 @@ class MarchingCubeHelper(IsosurfaceHelper):
 
         # Normalize the density values
         min_val, max_val = level.min().item(), level.max().item()
-        level = (level - min_val) / (max_val - min_val)
+        if max_val - min_val != 0:
+            level = (level - min_val) / (max_val - min_val)
+        else:
+            raise ValueError("Density values have zero range, normalization not possible.")
         
         # Adjust reshape based on the actual shape of level tensor
         if level.numel() == self.resolution ** 3:
