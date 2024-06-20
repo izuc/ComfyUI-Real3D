@@ -278,11 +278,11 @@ class TSR(BaseModule):
                 )["density_act"]
     
             # Log the shape of density
-            logger.info(f"Density tensor shape before squeeze: {density.shape}")
+            logging.info(f"Density tensor shape before squeeze: {density.shape}")
             
             # Squeeze the density tensor to remove the extra dimension
             density = density.squeeze()
-            logger.info(f"Density tensor shape after squeeze: {density.shape}")
+            logging.info(f"Density tensor shape after squeeze: {density.shape}")
     
             # Reshape density to expected 3D shape
             if density.numel() == self.isosurface_helper.resolution ** 3:
