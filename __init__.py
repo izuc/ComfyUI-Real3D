@@ -7,6 +7,7 @@ import torch
 import time
 import rembg
 import trimesh
+import io
 
 from folder_paths import get_filename_list, get_full_path, get_save_image_path, get_output_directory
 from comfy.model_management import get_torch_device
@@ -57,7 +58,10 @@ def load_custom_checkpoint(checkpoint_path):
         state_dict = checkpoint['state_dict']
     else:
         state_dict = checkpoint
-    return state_dict
+    buffer = io.BytesIO()
+    torch.save(state_dict, buffer)
+    buffer.seek(0)
+    return buffer
 
 class TripoSRModelLoader:
     def __init__(self):
@@ -84,12 +88,12 @@ class TripoSRModelLoader:
 
         if not self.initialized_model:
             print("Loading TripoSR model")
-            state_dict = load_custom_checkpoint(get_full_path("checkpoints", model))
+            state_dict_buffer = load_custom_checkpoint(get_full_path("checkpoints", model))
             self.initialized_model = TSR.from_pretrained_custom(
-                weight_path=state_dict,
+                weight_path=state_dict_buffer,
                 config_path=path.join(path.dirname(__file__), "config.yaml")
             )
-            self.initialized_model.load_state_dict(state_dict, strict=False)  # Use strict=False to handle missing/unexpected keys
+            self.initialized_model.load_state_dict(torch.load(state_dict_buffer), strict=False)  # Use strict=False to handle missing/unexpected keys
             self.initialized_model.renderer.set_chunk_size(chunk_size)
             self.initialized_model.to(device)
 
