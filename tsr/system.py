@@ -13,6 +13,7 @@ from einops import rearrange
 from huggingface_hub import hf_hub_download
 from omegaconf import OmegaConf
 from PIL import Image
+from skimage import measure
 
 from .models.isosurface import MarchingCubeHelper
 from .utils import (
@@ -44,9 +45,12 @@ class MarchingCubeHelper(torch.nn.Module):
         self.resolution = resolution
         self.grid_vertices = self.create_grid_vertices()
 
-    def forward(self, x):
-        # Implement the marching cubes algorithm here
-        pass
+    def forward(self, volume):
+        volume = volume.reshape(self.resolution, self.resolution, self.resolution).detach().cpu().numpy()
+        verts, faces, _, _ = measure.marching_cubes(volume, level=0, spacing=(1.0, 1.0, 1.0))
+        verts = torch.from_numpy(verts).float()
+        faces = torch.from_numpy(faces).long()
+        return verts, faces
         
 class TSR(BaseModule):
     @dataclass
