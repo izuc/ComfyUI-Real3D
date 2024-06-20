@@ -8,6 +8,9 @@ from tsr.system import TSR
 from PIL import Image
 import numpy as np
 import torch
+import logging
+import time
+import rembg
 
 
 def fill_background(image):
@@ -15,6 +18,40 @@ def fill_background(image):
     image = image[:, :, :3] * image[:, :, 3:4] + (1 - image[:, :, 3:4]) * 0.5
     image = Image.fromarray((image * 255.0).astype(np.uint8))
     return image
+
+
+def get_rays(image, n_views=1):
+    # Placeholder implementation
+    height, width = image.size[1], image.size[0]
+    rays_o = torch.zeros((n_views, height, width, 3), dtype=torch.float32)
+    rays_d = torch.zeros((n_views, height, width, 3), dtype=torch.float32)
+    return rays_o, rays_d
+
+
+class Timer:
+    def __init__(self):
+        self.items = {}
+        self.time_scale = 1000.0  # ms
+        self.time_unit = "ms"
+
+    def start(self, name: str) -> None:
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        self.items[name] = time.time()
+        logging.info(f"{name} ...")
+
+    def end(self, name: str) -> float:
+        if name not in self.items:
+            return
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        start_time = self.items.pop(name)
+        delta = time.time() - start_time
+        t = delta * self.time_scale
+        logging.info(f"{name} finished in {t:.2f}{self.time_unit}.")
+
+
+timer = Timer()
 
 
 class TripoSRModelLoader:
@@ -32,7 +69,7 @@ class TripoSRModelLoader:
 
     RETURN_TYPES = ("TRIPOSR_MODEL",)
     FUNCTION = "load"
-    CATEGORY = "Flowty TripoSR"
+    CATEGORY = "Real3D TripoSR"
 
     def load(self, model, chunk_size):
         device = get_torch_device()
@@ -73,7 +110,7 @@ class TripoSRSampler:
 
     RETURN_TYPES = ("MESH",)
     FUNCTION = "sample"
-    CATEGORY = "Flowty TripoSR"
+    CATEGORY = "Real3D TripoSR"
 
     def sample(self, model, reference_image, geometry_resolution, threshold, reference_mask=None):
         device = get_torch_device()
@@ -94,10 +131,16 @@ class TripoSRSampler:
             image = fill_background(image)
         image = image.convert('RGB')
 
-        rays_o, rays_d = get_rays(image)  # Ensure you have a function to get rays_o and rays_d
+        timer.start("Running model")
+        with torch.no_grad():
+            scene_codes = model.get_latent_from_img([image], device=device)
+        timer.end("Running model")
 
-        scene_codes = model.forward(inputs=[image], rays_o=rays_o, rays_d=rays_d)
+        timer.start("Exporting mesh")
         meshes = model.extract_mesh(scene_codes, resolution=geometry_resolution, threshold=threshold)
+        meshes[0].export(path.join(get_output_directory(), f"mesh_{time.time()}.{self.model_save_format}"))
+        timer.end("Exporting mesh")
+
         return ([meshes[0]],)
 
 
@@ -113,12 +156,11 @@ class TripoSRViewer:
     RETURN_TYPES = ()
     OUTPUT_NODE = True
     FUNCTION = "display"
-    CATEGORY = "Flowty TripoSR"
+    CATEGORY = "Real3D TripoSR"
 
     def display(self, mesh):
         saved = list()
-        full_output_folder, filename, counter, subfolder, filename_prefix = get_save_image_path("meshsave",
-                                                                                                get_output_directory())
+        full_output_folder, filename, counter, subfolder, filename_prefix = get_save_image_path("meshsave", get_output_directory())
 
         for (batch_number, single_mesh) in enumerate(mesh):
             filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
