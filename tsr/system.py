@@ -318,6 +318,7 @@ class TSR(BaseModule):
     
             # Apply marching cubes for the current chunk
             try:
+                # Adjust the threshold value if needed
                 v_pos_chunk, t_pos_idx_chunk = self.isosurface_helper(-(density - threshold))
             except Exception as e:
                 logging.error(f"Error during marching cubes: {e}")
@@ -355,3 +356,4 @@ class TSR(BaseModule):
         batch_faces = torch.cat(batch_faces, dim=0)
     
         return batch_vertices, batch_faces
+
