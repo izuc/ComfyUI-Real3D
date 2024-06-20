@@ -211,7 +211,7 @@ class TSR(BaseModule):
         ):
             return
         self.isosurface_helper = MarchingCubeHelper(resolution)
-    
+
     def extract_mesh(self, scene_codes, has_vertex_color, resolution: int = 256, threshold: float = 25.0):
         self.set_marching_cubes_resolution(resolution)
         meshes = []
@@ -232,26 +232,22 @@ class TSR(BaseModule):
             
             logging.info(f"Density shape: {density.shape}, min: {density.min()}, max: {density.max()}")
             
+            # Reshape density tensor to match the resolution
+            density = density.view(resolution, resolution, resolution)
+            
             # Apply marching cubes for the entire scene code
             try:
                 v_pos, t_pos_idx = self.isosurface_helper(-(density - threshold))
             except Exception as e:
                 logging.error(f"Error during marching cubes: {e}")
-                # Free up memory
-                del density
-                torch.cuda.empty_cache()
                 continue
             
             logging.info(f"v_pos shape: {v_pos.shape}")
             logging.info(f"t_pos_idx shape: {t_pos_idx.shape}")
-            logging.info(f"First 10 vertices:\n{v_pos[:10]}")
-            logging.info(f"First 10 faces:\n{t_pos_idx[:10]}")
             
+            # Check if face indices are within valid range
             if t_pos_idx.max() >= v_pos.shape[0]:
                 logging.error(f"Invalid face index found: {t_pos_idx.max()} exceeds number of vertices: {v_pos.shape[0]}")
-                # Free up memory
-                del density, v_pos, t_pos_idx
-                torch.cuda.empty_cache()
                 continue
             
             # Scale the vertex positions to the original range
@@ -269,15 +265,6 @@ class TSR(BaseModule):
                         v_pos,
                         scene_code,
                     )["color"]
-                
-                if color.numel() == 0:
-                    logging.error("Color tensor is empty.")
-                    # Free up memory
-                    del density, v_pos, t_pos_idx, color
-                    torch.cuda.empty_cache()
-                    continue
-                
-                logging.info(f"Color shape: {color.shape}")
             
             mesh = trimesh.Trimesh(
                 vertices=v_pos.cpu().numpy(),
@@ -291,3 +278,4 @@ class TSR(BaseModule):
             torch.cuda.empty_cache()
         
         return meshes
+
