@@ -142,7 +142,7 @@ class TripoSRSampler:
         timer.end("Running model")
 
         timer.start("Extracting mesh")
-        meshes = model.extract_mesh(scene_codes, resolution=geometry_resolution, threshold=threshold)
+        meshes = model.extract_mesh(scene_codes, has_vertex_color=True, resolution=geometry_resolution, threshold=threshold)
         timer.end("Extracting mesh")
 
         # Logging for debugging
