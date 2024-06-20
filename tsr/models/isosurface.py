@@ -42,33 +42,34 @@ class MarchingCubeHelper(IsosurfaceHelper):
     ) -> Tuple[torch.FloatTensor, torch.LongTensor]:
         # Squeeze to remove the extra dimension
         level = level.squeeze()
-
-        # Adjust reshape based on the actual shape of level tensor
-        if level.numel() == self.resolution ** 3:
-            level = level.view(self.resolution, self.resolution, self.resolution)
-        else:
-            raise ValueError(f"Cannot reshape level tensor of shape {level.shape} to {[self.resolution, self.resolution, self.resolution]}")
-
+    
+        # Log the shape of level tensor before reshaping
+        logging.info(f"Original level shape: {level.shape}, expected reshape to: {[self.resolution, self.resolution, self.resolution]}")
+    
         # Normalize the density values
         min_val, max_val = level.min().item(), level.max().item()
         if max_val - min_val != 0:
             level = (level - min_val) / (max_val - min_val)
         else:
             level = torch.full_like(level, 0.5)  # Set level to a constant value if range is zero
-
-        logging.info(f"Original level shape: {level.shape}, expected reshape to: {[self.resolution, self.resolution, self.resolution]}")
-
+    
+        # Reshape level tensor to the expected shape
+        if level.numel() == self.resolution ** 3:
+            level = level.view(self.resolution, self.resolution, self.resolution)
+        else:
+            raise ValueError(f"Cannot reshape level tensor of shape {level.shape} to {[self.resolution, self.resolution, self.resolution]}")
+    
         try:
             # Adjust the threshold value if needed
             v_pos, t_pos_idx = self.mc_func(level.detach().cpu(), 0.5)
         except Exception as e:
             logging.error(f"Error during marching cubes: {e}")
             raise
-
+    
         # Validate vertices and faces
         if v_pos.size(0) == 0 or t_pos_idx.size(0) == 0:
             raise ValueError("Marching cubes returned empty vertices or faces")
-
+    
         v_pos = v_pos[..., [2, 1, 0]]
         v_pos = v_pos / (self.resolution - 1.0)
         return v_pos.to(level.device), t_pos_idx.to(level.device)
