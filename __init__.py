@@ -12,21 +12,17 @@ import logging
 import time
 import rembg
 
-
 def fill_background(image):
     image = np.array(image).astype(np.float32) / 255.0
     image = image[:, :, :3] * image[:, :, 3:4] + (1 - image[:, :, 3:4]) * 0.5
     image = Image.fromarray((image * 255.0).astype(np.uint8))
     return image
 
-
 def get_rays(image, n_views=1):
-    # Placeholder implementation
     height, width = image.size[1], image.size[0]
     rays_o = torch.zeros((n_views, height, width, 3), dtype=torch.float32)
     rays_d = torch.zeros((n_views, height, width, 3), dtype=torch.float32)
     return rays_o, rays_d
-
 
 class Timer:
     def __init__(self):
@@ -50,9 +46,7 @@ class Timer:
         t = delta * self.time_scale
         logging.info(f"{name} finished in {t:.2f}{self.time_unit}.")
 
-
 timer = Timer()
-
 
 class TripoSRModelLoader:
     def __init__(self):
@@ -84,7 +78,14 @@ class TripoSRModelLoader:
                 config_path=path.join(path.dirname(__file__), "config.yaml")
             )
             self.initialized_model.renderer.set_chunk_size(chunk_size)
-            self.initialized_model.to(device)
+
+            try:
+                self.initialized_model.to(device)
+            except RuntimeError as e:
+                logging.error(f"Error allocating model on device {device}: {e}")
+                device = "cpu"
+                logging.info("Falling back to CPU.")
+                self.initialized_model.to(device)
 
         return (self.initialized_model,)
 
