@@ -1,5 +1,5 @@
 import sys
-from os import path
+import os
 import logging
 import numpy as np
 from PIL import Image
