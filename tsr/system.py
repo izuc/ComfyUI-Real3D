@@ -310,7 +310,16 @@ class TSR(BaseModule):
                 raise ValueError(f"Cannot reshape density tensor of shape {density.shape} to {[self.isosurface_helper.resolution, self.isosurface_helper.resolution, self.isosurface_helper.resolution]}")
     
             # Apply marching cubes for the current chunk
-            v_pos_chunk, t_pos_idx_chunk = self.isosurface_helper(-(density - threshold))
+            try:
+                v_pos_chunk, t_pos_idx_chunk = self.isosurface_helper(-(density - threshold))
+            except Exception as e:
+                logging.error(f"Error during marching cubes: {e}")
+                continue
+    
+            # Validate vertices and faces
+            if v_pos_chunk.size(0) == 0 or t_pos_idx_chunk.size(0) == 0:
+                logging.error("Marching cubes returned empty vertices or faces")
+                continue
     
             # Offset the vertex positions based on the chunk bounds
             v_pos_chunk[:, 0] += min_x
@@ -339,4 +348,3 @@ class TSR(BaseModule):
         batch_faces = torch.cat(batch_faces, dim=0)
     
         return batch_vertices, batch_faces
-    
