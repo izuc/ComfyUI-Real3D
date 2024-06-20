@@ -212,64 +212,95 @@ class TSR(BaseModule):
             return
         self.isosurface_helper = MarchingCubeHelper(resolution)
 
-    def extract_mesh(self, scene_codes, resolution: int = 256, threshold: float = 25.0):
+    def extract_mesh(self, scene_codes, resolution: int = 256, threshold: float = 25.0, chunk_size: int = 128, batch_size: int = 8):
         self.set_marching_cubes_resolution(resolution)
         meshes = []
         for scene_code in scene_codes:
+            vertices = []
+            faces = []
+            chunk_batch = []
+            for i in range(0, resolution, chunk_size):
+                for j in range(0, resolution, chunk_size):
+                    for k in range(0, resolution, chunk_size):
+                        chunk_batch.append((i, j, k))
+                        if len(chunk_batch) == batch_size:
+                            # Extract mesh for the current batch of chunks
+                            batch_vertices, batch_faces = self.extract_mesh_chunk_batch(scene_code, chunk_batch, chunk_size, threshold)
+                            vertices.append(batch_vertices)
+                            faces.append(batch_faces)
+                            chunk_batch = []
+
+            # Process any remaining chunks
+            if chunk_batch:
+                batch_vertices, batch_faces = self.extract_mesh_chunk_batch(scene_code, chunk_batch, chunk_size, threshold)
+                vertices.append(batch_vertices)
+                faces.append(batch_faces)
+
+            # Combine chunk meshes into a single mesh
+            vertices = torch.cat(vertices, dim=0)
+            faces = torch.cat(faces, dim=0)
+
+            # Create trimesh object
+            mesh = trimesh.Trimesh(
+                vertices=vertices.cpu().numpy(),
+                faces=faces.cpu().numpy(),
+            )
+            meshes.append(mesh)
+
+        return meshes
+
+    def extract_mesh_chunk_batch(self, scene_code, chunk_batch, chunk_size, threshold):
+        batch_vertices = []
+        batch_faces = []
+        for i, j, k in chunk_batch:
+            # Calculate the chunk bounds
+            min_x, max_x = i, min(i + chunk_size, self.isosurface_helper.resolution)
+            min_y, max_y = j, min(j + chunk_size, self.isosurface_helper.resolution)
+            min_z, max_z = k, min(k + chunk_size, self.isosurface_helper.resolution)
+
+            # Get the grid vertices for the current chunk
+            grid_vertices = self.isosurface_helper.grid_vertices[min_x:max_x, min_y:max_y, min_z:max_z].reshape(-1, 3)
+            grid_vertices = grid_vertices.to(torch.float16).to(scene_code.device)
+
+            # Query the triplane for the current chunk
             with torch.no_grad():
                 density = self.renderer.query_triplane(
                     self.decoder,
                     scale_tensor(
-                        self.isosurface_helper.grid_vertices.to(scene_codes.device),
+                        grid_vertices,
                         self.isosurface_helper.points_range,
                         (-self.renderer.cfg.radius, self.renderer.cfg.radius),
                     ),
                     scene_code,
                 )["density_act"]
-    
-            logging.info(f"Density shape: {density.shape}, min: {density.min()}, max: {density.max()}")
-    
-            try:
-                v_pos, t_pos_idx = self.isosurface_helper(-(density - threshold))
-            except Exception as e:
-                logging.error(f"Error during marching cubes: {e}")
-                continue
-    
-            logging.info(f"v_pos shape: {v_pos.shape}")
-            logging.info(f"t_pos_idx shape: {t_pos_idx.shape}")
-            logging.info(f"First 10 vertices:\n{v_pos[:10]}")
-            logging.info(f"First 10 faces:\n{t_pos_idx[:10]}")
-    
-            if t_pos_idx.max() >= v_pos.shape[0]:
-                logging.error(f"Invalid face index found: {t_pos_idx.max()} exceeds number of vertices: {v_pos.shape[0]}")
-                continue
-    
-            v_pos = scale_tensor(
-                v_pos,
+
+            # Apply marching cubes for the current chunk
+            v_pos_chunk, t_pos_idx_chunk = self.isosurface_helper(-(density - threshold))
+
+            # Offset the vertex positions based on the chunk bounds
+            v_pos_chunk[:, 0] += min_x
+            v_pos_chunk[:, 1] += min_y
+            v_pos_chunk[:, 2] += min_z
+
+            # Offset the face indices based on the number of vertices in previous chunks
+            t_pos_idx_chunk += len(batch_vertices)
+
+            # Scale the vertex positions to the original range
+            v_pos_chunk = scale_tensor(
+                v_pos_chunk,
                 self.isosurface_helper.points_range,
                 (-self.renderer.cfg.radius, self.renderer.cfg.radius),
             )
-    
-            with torch.no_grad():
-                color = self.renderer.query_triplane(
-                    self.decoder,
-                    v_pos,
-                    scene_code,
-                )["color"]
-    
-            if color.numel() == 0:
-                logging.error("Color tensor is empty.")
-                continue
-    
-            mesh = trimesh.Trimesh(
-                vertices=v_pos.cpu().numpy(),
-                faces=t_pos_idx.cpu().numpy(),
-                vertex_colors=color.cpu().numpy(),
-            )
-            meshes.append(mesh)
-    
+
+            batch_vertices.append(v_pos_chunk)
+            batch_faces.append(t_pos_idx_chunk)
+
             # Free up memory
-            del density, v_pos, t_pos_idx, color
+            del density, v_pos_chunk, t_pos_idx_chunk
             torch.cuda.empty_cache()
-    
-        return meshes
+
+        # Concatenate the batch vertices and faces
+        batch_vertices = torch.cat(batch_vertices, dim=0)
+        batch_faces = torch.cat(batch_faces, dim=0)
+
+        return batch_vertices, batch_faces
