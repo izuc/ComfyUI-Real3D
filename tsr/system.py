@@ -285,7 +285,7 @@ class TSR(BaseModule):
 
             # Get the grid vertices for the current chunk
             grid_vertices = self.isosurface_helper.grid_vertices[min_x:max_x, min_y:max_y, min_z:max_z]
-            grid_vertices = grid_vertices.reshape(-1, 3).to(torch.float16).to(scene_code.device)
+            grid_vertices = grid_vertices.reshape(-1, 3).to(torch.float32).to(scene_code.device)
 
             # Query the triplane for the current chunk
             with torch.no_grad():
