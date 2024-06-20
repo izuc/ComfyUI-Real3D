@@ -230,21 +230,21 @@ class TSR(BaseModule):
                     scene_code,
                 )["density_act"]
     
-            logger.info(f"Density shape: {density.shape}, min: {density.min()}, max: {density.max()}")
+            logging.info(f"Density shape: {density.shape}, min: {density.min()}, max: {density.max()}")
     
             try:
                 v_pos, t_pos_idx = self.isosurface_helper(-(density - threshold))
             except Exception as e:
-                logger.error(f"Error during marching cubes: {e}")
+                logging.error(f"Error during marching cubes: {e}")
                 continue
     
-            logger.info(f"v_pos shape: {v_pos.shape}")
-            logger.info(f"t_pos_idx shape: {t_pos_idx.shape}")
-            logger.info(f"First 10 vertices:\n{v_pos[:10]}")
-            logger.info(f"First 10 faces:\n{t_pos_idx[:10]}")
+            logging.info(f"v_pos shape: {v_pos.shape}")
+            logging.info(f"t_pos_idx shape: {t_pos_idx.shape}")
+            logging.info(f"First 10 vertices:\n{v_pos[:10]}")
+            logging.info(f"First 10 faces:\n{t_pos_idx[:10]}")
     
             if t_pos_idx.max() >= v_pos.shape[0]:
-                logger.error(f"Invalid face index found: {t_pos_idx.max()} exceeds number of vertices: {v_pos.shape[0]}")
+                logging.error(f"Invalid face index found: {t_pos_idx.max()} exceeds number of vertices: {v_pos.shape[0]}")
                 continue
     
             v_pos = scale_tensor(
@@ -261,7 +261,7 @@ class TSR(BaseModule):
                 )["color"]
     
             if color.numel() == 0:
-                logger.error("Color tensor is empty.")
+                logging.error("Color tensor is empty.")
                 continue
     
             mesh = trimesh.Trimesh(
@@ -303,11 +303,11 @@ class TSR(BaseModule):
                 )["density_act"]
     
             # Log the shape of density
-            logger.info(f"Density tensor shape before squeeze: {density.shape}")
+            logging.info(f"Density tensor shape before squeeze: {density.shape}")
             
             # Squeeze the density tensor to remove the extra dimension
             density = density.squeeze()
-            logger.info(f"Density tensor shape after squeeze: {density.shape}")
+            logging.info(f"Density tensor shape after squeeze: {density.shape}")
     
             # Reshape density to expected 3D shape
             if density.numel() == self.isosurface_helper.resolution ** 3:
