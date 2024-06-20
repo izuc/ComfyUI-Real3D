@@ -19,6 +19,7 @@ def fill_background(image):
     return image
 
 def get_rays(image, n_views=1):
+    # Placeholder implementation
     height, width = image.size[1], image.size[0]
     rays_o = torch.zeros((n_views, height, width, 3), dtype=torch.float32)
     rays_d = torch.zeros((n_views, height, width, 3), dtype=torch.float32)
@@ -78,17 +79,9 @@ class TripoSRModelLoader:
                 config_path=path.join(path.dirname(__file__), "config.yaml")
             )
             self.initialized_model.renderer.set_chunk_size(chunk_size)
-
-            try:
-                self.initialized_model.to(device)
-            except RuntimeError as e:
-                logging.error(f"Error allocating model on device {device}: {e}")
-                device = "cpu"
-                logging.info("Falling back to CPU.")
-                self.initialized_model.to(device)
+            self.initialized_model.to(device)
 
         return (self.initialized_model,)
-
 
 class TripoSRSampler:
 
@@ -103,6 +96,7 @@ class TripoSRSampler:
                 "reference_image": ("IMAGE",),
                 "geometry_resolution": ("INT", {"default": 256, "min": 128, "max": 12288}),
                 "threshold": ("FLOAT", {"default": 25.0, "min": 0.0, "step": 0.01}),
+                "model_save_format": ("STRING", {"default": "obj", "choices": ["obj", "glb"]}),
             },
             "optional": {
                 "reference_mask": ("MASK",)
@@ -113,7 +107,7 @@ class TripoSRSampler:
     FUNCTION = "sample"
     CATEGORY = "Real3D TripoSR"
 
-    def sample(self, model, reference_image, geometry_resolution, threshold, reference_mask=None):
+    def sample(self, model, reference_image, geometry_resolution, threshold, model_save_format, reference_mask=None):
         device = get_torch_device()
 
         if not torch.cuda.is_available():
@@ -139,11 +133,10 @@ class TripoSRSampler:
 
         timer.start("Exporting mesh")
         meshes = model.extract_mesh(scene_codes, resolution=geometry_resolution, threshold=threshold)
-        meshes[0].export(path.join(get_output_directory(), f"mesh_{time.time()}.{self.model_save_format}"))
+        meshes[0].export(path.join(get_output_directory(), f"mesh_{time.time()}.{model_save_format}"))
         timer.end("Exporting mesh")
 
         return ([meshes[0]],)
-
 
 class TripoSRViewer:
     @classmethod
@@ -175,7 +168,6 @@ class TripoSRViewer:
             })
 
         return {"ui": {"mesh": saved}}
-
 
 NODE_CLASS_MAPPINGS = {
     "TripoSRModelLoader": TripoSRModelLoader,
