@@ -44,6 +44,10 @@ class MarchingCubeHelper(IsosurfaceHelper):
 
         # Squeeze to remove the extra dimension
         level = level.squeeze()
+
+        # Normalize the density values
+        min_val, max_val = level.min().item(), level.max().item()
+        level = (level - min_val) / (max_val - min_val)
         
         # Adjust reshape based on the actual shape of level tensor
         if level.numel() == self.resolution ** 3:
@@ -52,7 +56,7 @@ class MarchingCubeHelper(IsosurfaceHelper):
             raise ValueError(f"Cannot reshape level tensor of shape {level.shape} to {[self.resolution, self.resolution, self.resolution]}")
         
         try:
-            v_pos, t_pos_idx = self.mc_func(level.detach(), 0.0)
+            v_pos, t_pos_idx = self.mc_func(level.detach().cpu(), 0.0)
         except Exception as e:
             print(f"Error during marching cubes: {e}")
             raise
