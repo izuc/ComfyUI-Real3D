@@ -1,4 +1,3 @@
-import logging
 import math
 import os
 from dataclasses import dataclass, field
@@ -223,7 +222,6 @@ class TSR(BaseModule):
     def extract_mesh(self, scene_codes, resolution: int = 256, threshold: float = 25.0, batch_size: int = 64):
         self.set_marching_cubes_resolution(resolution)
         meshes = []
-
         for scene_code in scene_codes:
             with torch.no_grad():
                 density = self.renderer.query_triplane(
@@ -248,11 +246,16 @@ class TSR(BaseModule):
 
                 try:
                     v_pos_batch, t_pos_idx_batch = self.isosurface_helper(-(density_batch - threshold))
-                    v_pos_list.append(v_pos_batch)
-                    t_pos_idx_list.append(t_pos_idx_batch)
+                    if v_pos_batch.numel() > 0 and t_pos_idx_batch.numel() > 0:
+                        v_pos_list.append(v_pos_batch)
+                        t_pos_idx_list.append(t_pos_idx_batch)
                 except Exception as e:
                     logging.error(f"Error during marching cubes: {e}")
                     continue
+
+            if not v_pos_list or not t_pos_idx_list:
+                logging.error("No valid vertices or faces found.")
+                continue
 
             v_pos = torch.cat(v_pos_list, dim=0)
             t_pos_idx = torch.cat(t_pos_idx_list, dim=0)
