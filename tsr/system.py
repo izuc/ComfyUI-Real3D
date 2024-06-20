@@ -211,6 +211,8 @@ class TSR(BaseModule):
         ):
             return
         self.isosurface_helper = MarchingCubeHelper(resolution)
+        # Reshape the grid_vertices tensor to have 3 dimensions
+        self.isosurface_helper.grid_vertices = self.isosurface_helper.grid_vertices.reshape(resolution, resolution, resolution, 3)
 
     def extract_mesh(self, scene_codes, resolution: int = 256, threshold: float = 25.0, chunk_size: int = 128, batch_size: int = 8):
         self.set_marching_cubes_resolution(resolution)
