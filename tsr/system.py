@@ -277,6 +277,11 @@ class TSR(BaseModule):
                     scene_code,
                 )["density_act"]
 
+            # Check the size of density
+            expected_size = (max_x - min_x) * (max_y - min_y) * (max_z - min_z)
+            if density.numel() != expected_size:
+                raise ValueError(f"Density tensor has incorrect number of elements. Expected {expected_size}, got {density.numel()}")
+
             # Apply marching cubes for the current chunk
             v_pos_chunk, t_pos_idx_chunk = self.isosurface_helper(-(density - threshold))
 
@@ -307,3 +312,4 @@ class TSR(BaseModule):
         batch_faces = torch.cat(batch_faces, dim=0)
 
         return batch_vertices, batch_faces
+
