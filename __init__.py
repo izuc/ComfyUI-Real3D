@@ -130,23 +130,18 @@ class TripoSRSampler:
             scene_codes = model.get_latent_from_img([image], device=device)
         timer.end("Running model")
 
-        timer.start("Extracting mesh")
-        meshes = model.extract_mesh(scene_codes, resolution=geometry_resolution, threshold=threshold)
-        if not meshes:
-            logging.error("No meshes extracted.")
-            return []
-        timer.end("Extracting mesh")
-
         timer.start("Exporting mesh")
-        output_filename = path.join(get_output_directory(), f"mesh_{time.time()}.{model_save_format}")
-        try:
-            if model_save_format == "obj":
-                meshes[0].export(output_filename)
-            elif model_save_format == "glb":
-                meshes[0].export(output_filename, file_type='glb')
-            logging.info(f"Mesh exported successfully to {output_filename}")
-        except Exception as e:
-            logging.error(f"Error exporting mesh: {e}")
+        meshes = model.extract_mesh(scene_codes, resolution=geometry_resolution, threshold=threshold)
+        
+        output_filename = path.join(get_output_directory(), f"mesh_{time.time()}.obj")
+        meshes[0].export(output_filename)
+        logging.info(f"Mesh exported successfully to {output_filename}")
+        
+        if model_save_format == "glb":
+            output_glb_filename = path.join(get_output_directory(), f"mesh_{time.time()}.glb")
+            meshes[0].export(output_glb_filename, file_type='glb')
+            logging.info(f"Mesh exported successfully to {output_glb_filename}")
+        
         timer.end("Exporting mesh")
 
         return ([meshes[0]],)
