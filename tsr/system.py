@@ -205,11 +205,14 @@ class TSR(BaseModule):
         return images
 
     def set_marching_cubes_resolution(self, resolution: int):
-        if self.isosurface_helper is not None and self.isosurface_helper.resolution == resolution:
+        if (
+            self.isosurface_helper is not None
+            and self.isosurface_helper.resolution == resolution
+        ):
             return
         self.isosurface_helper = MarchingCubeHelper(resolution)
-
-    def extract_mesh(self, scene_codes, resolution: int = 256, threshold: float = 25.0, chunk_size: int = 64):
+    
+    def extract_mesh(self, scene_codes, has_vertex_color, resolution: int = 256, threshold: float = 25.0, chunk_size: int = 64):
         self.set_marching_cubes_resolution(resolution)
         meshes = []
         for scene_code in scene_codes:
@@ -244,11 +247,7 @@ class TSR(BaseModule):
                         logging.info(f"Density shape: {density.shape}, min: {density.min()}, max: {density.max()}")
                         
                         # Apply marching cubes for the current chunk
-                        try:
-                            v_pos_chunk, t_pos_idx_chunk = self.isosurface_helper(-(density - threshold))
-                        except Exception as e:
-                            logging.error(f"Error during marching cubes: {e}")
-                            continue
+                        v_pos_chunk, t_pos_idx_chunk = self.isosurface_helper(-(density - threshold))
                         
                         logging.info(f"Chunk vertices shape: {v_pos_chunk.shape}, faces shape: {t_pos_idx_chunk.shape}")
                         
@@ -276,33 +275,31 @@ class TSR(BaseModule):
             
             logging.info(f"Total vertices: {len(batch_vertices)}, total faces: {len(batch_faces)}")
             
-            if batch_vertices and batch_faces:
-                # Concatenate the batch vertices and faces
-                batch_vertices = torch.cat(batch_vertices, dim=0)
-                batch_faces = torch.cat(batch_faces, dim=0)
-                
-                logging.info(f"Concatenated vertices shape: {batch_vertices.shape}, faces shape: {batch_faces.shape}")
-                
+            # Concatenate the batch vertices and faces
+            batch_vertices = torch.cat(batch_vertices, dim=0)
+            batch_faces = torch.cat(batch_faces, dim=0)
+            
+            logging.info(f"Concatenated vertices shape: {batch_vertices.shape}, faces shape: {batch_faces.shape}")
+            
+            color = None
+            if has_vertex_color:
                 with torch.no_grad():
                     color = self.renderer.query_triplane(
                         self.decoder,
                         batch_vertices,
                         scene_code,
                     )["color"]
-                
                 logging.info(f"Color shape: {color.shape}")
-                
-                mesh = trimesh.Trimesh(
-                    vertices=batch_vertices.cpu().numpy(),
-                    faces=batch_faces.cpu().numpy(),
-                    vertex_colors=color.cpu().numpy(),
-                )
-                meshes.append(mesh)
-                
-                # Free up memory
-                del batch_vertices, batch_faces, color
-                torch.cuda.empty_cache()
-            else:
-                logging.warning("No valid vertices or faces generated for the current scene code. Skipping mesh creation.")
+            
+            mesh = trimesh.Trimesh(
+                vertices=batch_vertices.cpu().numpy(),
+                faces=batch_faces.cpu().numpy(),
+                vertex_colors=color.cpu().numpy() if has_vertex_color else None,
+            )
+            meshes.append(mesh)
+            
+            # Free up memory
+            del batch_vertices, batch_faces, color
+            torch.cuda.empty_cache()
         
         return meshes
