@@ -19,7 +19,6 @@ def fill_background(image):
     return image
 
 def get_rays(image, n_views=1):
-    # Placeholder implementation
     height, width = image.size[1], image.size[0]
     rays_o = torch.zeros((n_views, height, width, 3), dtype=torch.float32)
     rays_d = torch.zeros((n_views, height, width, 3), dtype=torch.float32)
@@ -133,7 +132,11 @@ class TripoSRSampler:
 
         timer.start("Exporting mesh")
         meshes = model.extract_mesh(scene_codes, resolution=geometry_resolution, threshold=threshold)
-        meshes[0].export(path.join(get_output_directory(), f"mesh_{time.time()}.{model_save_format}"))
+        output_filename = path.join(get_output_directory(), f"mesh_{time.time()}.{model_save_format}")
+        if model_save_format == "obj":
+            meshes[0].export(output_filename)
+        elif model_save_format == "glb":
+            meshes[0].export(output_filename, file_type='glb')
         timer.end("Exporting mesh")
 
         return ([meshes[0]],)
