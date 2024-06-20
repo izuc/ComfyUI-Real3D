@@ -277,9 +277,13 @@ class TSR(BaseModule):
                     scene_code,
                 )["density_act"]
     
-            # Check the shape of density
-            print(f"Density tensor shape before reshape: {density.shape}")
+            # Log the shape of density
+            logger.debug(f"Density tensor shape before squeeze: {density.shape}")
             
+            # Squeeze the density tensor to remove the extra dimension
+            density = density.squeeze()
+            logger.debug(f"Density tensor shape after squeeze: {density.shape}")
+    
             # Reshape density to expected 3D shape
             if density.numel() == self.isosurface_helper.resolution ** 3:
                 density = density.view(self.isosurface_helper.resolution, self.isosurface_helper.resolution, self.isosurface_helper.resolution)
@@ -288,7 +292,6 @@ class TSR(BaseModule):
     
             # Apply marching cubes for the current chunk
             v_pos_chunk, t_pos_idx_chunk = self.isosurface_helper(-(density - threshold))
-
     
             # Offset the vertex positions based on the chunk bounds
             v_pos_chunk[:, 0] += min_x
@@ -317,3 +320,4 @@ class TSR(BaseModule):
         batch_faces = torch.cat(batch_faces, dim=0)
     
         return batch_vertices, batch_faces
+    
