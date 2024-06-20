@@ -220,9 +220,10 @@ class TSR(BaseModule):
             return
         self.isosurface_helper = MarchingCubeHelper(resolution)
 
-    def extract_mesh(self, scene_codes, resolution: int = 256, threshold: float = 25.0):
+    def extract_mesh(self, scene_codes, resolution: int = 256, threshold: float = 25.0, batch_size: int = 64):
         self.set_marching_cubes_resolution(resolution)
         meshes = []
+
         for scene_code in scene_codes:
             with torch.no_grad():
                 density = self.renderer.query_triplane(
@@ -234,10 +235,28 @@ class TSR(BaseModule):
                     ),
                     scene_code,
                 )["density_act"]
-            
-            v_pos, t_pos_idx = self.isosurface_helper(-(density - threshold))
-            
-            # Add detailed logging here
+
+            logging.info(f"Density shape: {density.shape}, min: {density.min()}, max: {density.max()}")
+
+            num_vertices = density.shape[0]
+            v_pos_list = []
+            t_pos_idx_list = []
+
+            for start in range(0, num_vertices, batch_size):
+                end = min(start + batch_size, num_vertices)
+                density_batch = density[start:end]
+
+                try:
+                    v_pos_batch, t_pos_idx_batch = self.isosurface_helper(-(density_batch - threshold))
+                    v_pos_list.append(v_pos_batch)
+                    t_pos_idx_list.append(t_pos_idx_batch)
+                except Exception as e:
+                    logging.error(f"Error during marching cubes: {e}")
+                    continue
+
+            v_pos = torch.cat(v_pos_list, dim=0)
+            t_pos_idx = torch.cat(t_pos_idx_list, dim=0)
+
             logging.info(f"v_pos shape: {v_pos.shape}")
             logging.info(f"t_pos_idx shape: {t_pos_idx.shape}")
             logging.info(f"First 10 vertices:\n{v_pos[:10]}")
@@ -252,16 +271,23 @@ class TSR(BaseModule):
                 self.isosurface_helper.points_range,
                 (-self.renderer.cfg.radius, self.renderer.cfg.radius),
             )
+
             with torch.no_grad():
                 color = self.renderer.query_triplane(
                     self.decoder,
                     v_pos,
                     scene_code,
                 )["color"]
+
             mesh = trimesh.Trimesh(
                 vertices=v_pos.cpu().numpy(),
                 faces=t_pos_idx.cpu().numpy(),
                 vertex_colors=color.cpu().numpy(),
             )
             meshes.append(mesh)
+
+            # Free up memory
+            del density, v_pos_list, t_pos_idx_list, v_pos, t_pos_idx, color
+            torch.cuda.empty_cache()
+
         return meshes
