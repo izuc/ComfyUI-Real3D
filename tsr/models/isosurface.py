@@ -59,7 +59,8 @@ class MarchingCubeHelper(IsosurfaceHelper):
             raise ValueError(f"Cannot reshape level tensor of shape {level.shape} to {[self.resolution, self.resolution, self.resolution]}")
         
         try:
-            v_pos, t_pos_idx = self.mc_func(level.detach().cpu(), 0.0)
+            # Adjust the threshold value if needed
+            v_pos, t_pos_idx = self.mc_func(level.detach().cpu(), 0.5)
         except Exception as e:
             print(f"Error during marching cubes: {e}")
             raise
