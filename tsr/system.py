@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 import trimesh
 from einops import rearrange
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, HFValidationError
 from omegaconf import OmegaConf
 from PIL import Image
 
@@ -51,21 +51,27 @@ class TSR(BaseModule):
     cfg: Config
 
     @classmethod
-    def from_pretrained(
-        cls, pretrained_model_name_or_path: str, config_name: str, weight_name: str
-    ):
+    def from_pretrained(cls, pretrained_model_name_or_path: str, config_name: str, weight_name: str):
         if os.path.isdir(pretrained_model_name_or_path):
             config_path = os.path.join(pretrained_model_name_or_path, config_name)
             weight_path = os.path.join(pretrained_model_name_or_path, weight_name)
             use_saved_ckpt = True
+        elif os.path.isfile(pretrained_model_name_or_path):
+            # If it's a file, split the directory and use the filename provided
+            config_path = os.path.join(os.path.dirname(pretrained_model_name_or_path), config_name)
+            weight_path = pretrained_model_name_or_path
+            use_saved_ckpt = True
         else:
-            config_path = hf_hub_download(
-                repo_id=pretrained_model_name_or_path, filename=config_name
-            )
-            weight_path = hf_hub_download(
-                repo_id=pretrained_model_name_or_path, filename=weight_name
-            )
-            use_saved_ckpt = False
+            try:
+                config_path = hf_hub_download(
+                    repo_id=pretrained_model_name_or_path, filename=config_name
+                )
+                weight_path = hf_hub_download(
+                    repo_id=pretrained_model_name_or_path, filename=weight_name
+                )
+                use_saved_ckpt = False
+            except HFValidationError as e:
+                raise ValueError(f"Invalid Hugging Face Hub repository ID: {pretrained_model_name_or_path}")
 
         cfg = OmegaConf.load(config_path)
         OmegaConf.resolve(cfg)
@@ -73,7 +79,7 @@ class TSR(BaseModule):
         ckpt = torch.load(weight_path, map_location="cpu")
         if use_saved_ckpt:
             if "module" in list(ckpt["state_dict"].keys())[0]:
-                ckpt = {key.replace('module.',''): item for key, item in ckpt["state_dict"].items()}
+                ckpt = {key.replace('module.', ''): item for key, item in ckpt["state_dict"].items()}
             else:
                 ckpt = ckpt["state_dict"]
         model.load_state_dict(ckpt)
