@@ -41,7 +41,13 @@ class MarchingCubeHelper(IsosurfaceHelper):
     ) -> Tuple[torch.FloatTensor, torch.LongTensor]:
         # Debug print to check the shape of the tensor before reshaping
         print(f"Original level shape: {level.shape}, expected reshape to: {[self.resolution, self.resolution, self.resolution]}")
-        level = -level.view(self.resolution, self.resolution, self.resolution)
+        
+        # Adjust reshape based on the actual shape of level tensor
+        if level.shape[0] == self.resolution**3:
+            level = -level.view(self.resolution, self.resolution, self.resolution)
+        else:
+            raise ValueError(f"Cannot reshape level tensor of shape {level.shape} to {[self.resolution, self.resolution, self.resolution]}")
+        
         try:
             v_pos, t_pos_idx = self.mc_func(level.detach(), 0.0)
         except AttributeError:
@@ -50,3 +56,4 @@ class MarchingCubeHelper(IsosurfaceHelper):
         v_pos = v_pos[..., [2, 1, 0]]
         v_pos = v_pos / (self.resolution - 1.0)
         return v_pos.to(level.device), t_pos_idx.to(level.device)
+
