@@ -305,7 +305,10 @@ class TSR(BaseModule):
     
             # Normalize the density values
             min_val, max_val = density.min().item(), density.max().item()
-            density = (density - min_val) / (max_val - min_val)
+            if max_val - min_val != 0:
+                density = (density - min_val) / (max_val - min_val)
+            else:
+                raise ValueError("Density values have zero range, normalization not possible.")
     
             # Reshape density to expected 3D shape
             if density.numel() == self.isosurface_helper.resolution ** 3:
