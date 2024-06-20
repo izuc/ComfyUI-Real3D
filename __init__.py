@@ -77,10 +77,12 @@ class TripoSRModelLoader:
         if not self.initialized_model:
             print("Loading TripoSR model")
             model_path = get_full_path("checkpoints", model)
+            model_dir = os.path.dirname(model_path)
+            model_filename = os.path.basename(model_path)
             self.initialized_model = TSR.from_pretrained(
-                pretrained_model_name_or_path=model_path,
+                pretrained_model_name_or_path=model_dir,
                 config_name="config.yaml",
-                weight_name=path.basename(model_path)
+                weight_name=model_filename
             )
             self.initialized_model.renderer.set_chunk_size(chunk_size)
             self.initialized_model.to(device)
