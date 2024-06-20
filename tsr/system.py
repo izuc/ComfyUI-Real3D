@@ -58,8 +58,10 @@ class MarchingCubeHelper(torch.nn.Module):
     
         volume = volume.reshape(self.resolution, self.resolution, self.resolution).detach().cpu().numpy()
         verts, faces, _, _ = measure.marching_cubes(volume, level=0, spacing=(1.0, 1.0, 1.0))
-        verts = torch.from_numpy(verts).float()
-        faces = torch.from_numpy(faces).long()
+        verts = np.array(verts, dtype=np.float32)  # Create a copy of verts with float32 dtype
+        faces = np.array(faces, dtype=np.int64)   # Create a copy of faces with int64 dtype
+        verts = torch.from_numpy(verts)
+        faces = torch.from_numpy(faces)
         return verts, faces
         
 class TSR(BaseModule):
