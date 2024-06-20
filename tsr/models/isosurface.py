@@ -53,11 +53,8 @@ class MarchingCubeHelper(IsosurfaceHelper):
         else:
             level = torch.full_like(level, 0.5)  # Set level to a constant value if range is zero
     
-        # Reshape level tensor to the expected shape
-        if level.numel() == self.resolution ** 3:
-            level = level.view(self.resolution, self.resolution, self.resolution)
-        else:
-            raise ValueError(f"Cannot reshape level tensor of shape {level.shape} to {[self.resolution, self.resolution, self.resolution]}")
+        # Reshape level tensor to match the resolution
+        level = level.view(level.shape[0], level.shape[1], level.shape[2])
     
         try:
             # Adjust the threshold value if needed
@@ -71,5 +68,5 @@ class MarchingCubeHelper(IsosurfaceHelper):
             raise ValueError("Marching cubes returned empty vertices or faces")
     
         v_pos = v_pos[..., [2, 1, 0]]
-        v_pos = v_pos / (self.resolution - 1.0)
+        v_pos = v_pos / (level.shape[0] - 1.0)
         return v_pos.to(level.device), t_pos_idx.to(level.device)
