@@ -1,4 +1,3 @@
-import logging
 from typing import Callable, Optional, Tuple
 
 import numpy as np
@@ -24,7 +23,7 @@ class MarchingCubeHelper(IsosurfaceHelper):
 
     @property
     def grid_vertices(self) -> torch.FloatTensor:
-        if self._grid_vertices is None or self._grid_vertices.shape[0] != self.resolution:
+        if self._grid_vertices is None:
             # keep the vertices on CPU so that we can support very large resolution
             x, y, z = (
                 torch.linspace(*self.points_range, self.resolution),
@@ -32,7 +31,9 @@ class MarchingCubeHelper(IsosurfaceHelper):
                 torch.linspace(*self.points_range, self.resolution),
             )
             x, y, z = torch.meshgrid(x, y, z, indexing="ij")
-            verts = torch.stack((x, y, z), dim=-1)
+            verts = torch.cat(
+                [x.reshape(-1, 1), y.reshape(-1, 1), z.reshape(-1, 1)], dim=-1
+            ).reshape(-1, 3)
             self._grid_vertices = verts
         return self._grid_vertices
 
@@ -40,33 +41,12 @@ class MarchingCubeHelper(IsosurfaceHelper):
         self,
         level: torch.FloatTensor,
     ) -> Tuple[torch.FloatTensor, torch.LongTensor]:
-        # Squeeze to remove the extra dimension
-        level = level.squeeze()
-    
-        # Log the shape of level tensor before reshaping
-        logging.info(f"Original level shape: {level.shape}, expected reshape to: {[self.resolution, self.resolution, self.resolution]}")
-    
-        # Normalize the density values
-        min_val, max_val = level.min().item(), level.max().item()
-        if max_val - min_val != 0:
-            level = (level - min_val) / (max_val - min_val)
-        else:
-            level = torch.full_like(level, 0.5)  # Set level to a constant value if range is zero
-    
-        # Reshape level tensor to match the resolution
-        level = level.view(level.shape[0], level.shape[1], level.shape[2])
-    
+        level = -level.view(self.resolution, self.resolution, self.resolution)
         try:
-            # Adjust the threshold value if needed
-            v_pos, t_pos_idx = self.mc_func(level.detach().cpu(), 0.5)
-        except Exception as e:
-            logging.error(f"Error during marching cubes: {e}")
-            raise
-    
-        # Validate vertices and faces
-        if v_pos.size(0) == 0 or t_pos_idx.size(0) == 0:
-            raise ValueError("Marching cubes returned empty vertices or faces")
-    
+            v_pos, t_pos_idx = self.mc_func(level.detach(), 0.0)
+        except AttributeError:
+            print("torchmcubes was not compiled with CUDA support, use CPU version instead.")
+            v_pos, t_pos_idx = self.mc_func(level.detach().cpu(), 0.0)
         v_pos = v_pos[..., [2, 1, 0]]
-        v_pos = v_pos / (level.shape[0] - 1.0)
+        v_pos = v_pos / (self.resolution - 1.0)
         return v_pos.to(level.device), t_pos_idx.to(level.device)
